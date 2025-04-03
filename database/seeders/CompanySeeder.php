@@ -3,16 +3,16 @@
 namespace Database\Seeders;
 
 use App\Models\Company;
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class CompanySeeder extends Seeder
 {
     /**
      * Run the database seeds.
+     *
+     * @return \App\Models\Company
      */
-    public function run(): void
+    public function run(): Company
     {
         // Create demo company
         $company = Company::create([
@@ -27,16 +27,8 @@ class CompanySeeder extends Seeder
         $company->api_key = 'demo_api_key_for_testing_purposes_only';
         $company->save();
 
-        // Create demo company manager
-        User::create([
-            'name' => 'Demo Manager',
-            'email' => 'manager@demo.com',
-            'password' => bcrypt('password'),
-            'company_id' => $company->id,
-            'is_admin' => false,
-        ]);
-
         $this->command->info('Demo company created with API key: ' . $company->api_key);
-        $this->command->info('Demo company manager created: manager@demo.com / password');
+
+        return $company;
     }
 }

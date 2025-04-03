@@ -4,8 +4,6 @@ namespace Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use App\Models\Company;
-use App\Models\User;
 
 class DatabaseSeeder extends Seeder
 {
@@ -21,30 +19,19 @@ class DatabaseSeeder extends Seeder
         //     'email' => 'test@example.com',
         // ]);
 
-        // Создаем глобального администратора
-        User::factory()->create([
-            'name' => 'Admin',
-            'email' => 'admin@leadflow.test',
-            'password' => bcrypt('password'),
-            'is_admin' => true,
+        // Сначала создаем роли и разрешения
+        $this->call([
+            RolePermissionSeeder::class,
         ]);
 
-        // Вызываем CompanySeeder
+        // Затем создаем компании
         $this->call([
             CompanySeeder::class,
         ]);
 
-        // Создаем дополнительные тестовые компании и пользователей
-        Company::factory(3)->create()->each(function ($company) {
-            // Для каждой компании создаем менеджера
-            User::factory()->forCompany($company)->create([
-                'name' => 'Manager ' . $company->name,
-                'email' => 'manager_' . $company->id . '@leadflow.test',
-                'password' => bcrypt('password'),
-            ]);
-
-            // И несколько обычных пользователей
-            User::factory(2)->forCompany($company)->create();
-        });
+        // Затем создаем пользователей
+        $this->call([
+            UserSeeder::class,
+        ]);
     }
 }
