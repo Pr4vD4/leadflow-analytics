@@ -1,9 +1,6 @@
 <!-- Блок возможностей -->
-<section id="features" class="py-24 bg-white dark:bg-secondary-900 relative overflow-hidden">
-    <!-- Фоновые частицы для секции features -->
-    <x-particles id="features-particles" />
-
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+<section id="features" class="py-24 bg-white dark:bg-secondary-900">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16" data-aos="fade-up">
             <h2 class="text-3xl font-bold font-heading text-secondary-900 dark:text-white">
                 Возможности платформы

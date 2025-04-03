@@ -1,9 +1,6 @@
 <!-- Блок "Свяжитесь с нами" -->
-<section id="contact" class="py-24 bg-primary-50 dark:bg-secondary-800 relative overflow-hidden">
-    <!-- Фоновые частицы для секции contact -->
-    <x-particles id="contact-particles" />
-
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+<section id="contact" class="py-24 bg-primary-50 dark:bg-secondary-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="lg:grid lg:grid-cols-2 lg:gap-16 items-center">
             <div data-aos="fade-right">
                 <h2 class="text-3xl font-bold font-heading text-secondary-900 dark:text-white">
