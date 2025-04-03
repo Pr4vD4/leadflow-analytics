@@ -84,4 +84,24 @@ class Company extends Model
     {
         return $this->hasMany(User::class);
     }
+
+    /**
+     * Get the invitations for the company.
+     */
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(CompanyInvitation::class);
+    }
+
+    /**
+     * Create a new invitation code for the company.
+     */
+    public function createInvitation(User $user): CompanyInvitation
+    {
+        return $this->invitations()->create([
+            'code' => CompanyInvitation::generateUniqueCode(),
+            'user_id' => $user->id,
+            'is_active' => true,
+        ]);
+    }
 }

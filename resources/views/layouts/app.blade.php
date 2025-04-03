@@ -14,47 +14,6 @@
             }
         </script>
 
-        <!-- Прелоадер -->
-        <style>
-            .preloader {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                z-index: 9999;
-                transition: opacity 0.3s;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-            }
-            .preloader.light {
-                background-color: #f9fafb; /* bg-gray-50 */
-            }
-            .preloader.dark {
-                background-color: #0f172a; /* bg-secondary-900 */
-            }
-            .preloader .spinner {
-                width: 50px;
-                height: 50px;
-                border: 5px solid rgba(0, 0, 0, 0.1);
-                border-radius: 50%;
-                border-top-color: #4f46e5; /* indigo-600 */
-                animation: spin 1s ease-in-out infinite;
-            }
-            .dark .preloader .spinner {
-                border-color: rgba(255, 255, 255, 0.1);
-                border-top-color: #4f46e5;
-            }
-            @keyframes spin {
-                to { transform: rotate(360deg); }
-            }
-            .hidden {
-                opacity: 0;
-                pointer-events: none;
-            }
-        </style>
-
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,10 +32,8 @@
         @stack('styles')
     </head>
     <body class="antialiased bg-gray-50 dark:bg-secondary-900">
-        <!-- Прелоадер -->
-        <div id="preloader" class="preloader">
-            <div class="spinner"></div>
-        </div>
+        <!-- Использование нового компонента прелоадера -->
+        <x-preloader id="main-preloader" fullscreen="true" text="LeadFlow Analytics" />
 
         <div x-data="{
                 mobileMenuOpen: false,
@@ -107,7 +64,7 @@
 
             @include('components.header')
 
-            <main class="overflow-x-hidden">
+            <main class="overflow-x-hidden content-container" id="content-container">
                 @yield('content')
             </main>
 
@@ -120,16 +77,7 @@
         <!-- AOS JS -->
         <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
         <script>
-            // Настройка прелоадера
             document.addEventListener('DOMContentLoaded', function() {
-                // Применение темы к прелоадеру
-                const preloader = document.getElementById('preloader');
-                if (localStorage.getItem('darkMode') === 'true') {
-                    preloader.classList.add('dark');
-                } else {
-                    preloader.classList.add('light');
-                }
-
                 // Инициализация AOS
                 AOS.init({
                     duration: 800,
@@ -138,20 +86,10 @@
                     mirror: false
                 });
 
-                // Проверяем текущую тему из localStorage при загрузке
-                const darkMode = localStorage.getItem('darkMode') === 'true';
-                if (darkMode) {
-                    document.documentElement.classList.add('dark');
-                    document.documentElement.classList.remove('light');
-                } else {
-                    document.documentElement.classList.remove('dark');
-                    document.documentElement.classList.add('light');
-                }
-
-                // Скрываем прелоадер после загрузки контента
-                setTimeout(function() {
-                    preloader.classList.add('hidden');
-                }, 300);
+                // Показываем контейнер контента
+                setTimeout(() => {
+                    document.getElementById('content-container').classList.add('loaded');
+                }, 100);
             });
         </script>
 

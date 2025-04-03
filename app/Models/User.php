@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
@@ -64,5 +65,31 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->is_admin;
+    }
+
+    /**
+     * Check if the user has an associated company.
+     *
+     * @return bool
+     */
+    public function hasCompany(): bool
+    {
+        return !is_null($this->company_id);
+    }
+
+    /**
+     * Get the invitations created by the user.
+     */
+    public function createdInvitations(): HasMany
+    {
+        return $this->hasMany(CompanyInvitation::class, 'user_id');
+    }
+
+    /**
+     * Get the invitations activated by the user.
+     */
+    public function activatedInvitations(): HasMany
+    {
+        return $this->hasMany(CompanyInvitation::class, 'activated_by_user_id');
     }
 }

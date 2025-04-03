@@ -7,7 +7,7 @@
     <div class="w-full max-w-md space-y-8" data-aos="fade-up" data-aos-duration="800">
         <div>
             <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-secondary-900 dark:text-white">
-                Регистрация компании
+                Регистрация
             </h2>
             <p class="mt-2 text-center text-sm text-secondary-600 dark:text-secondary-300">
                 Уже зарегистрированы?
@@ -19,15 +19,6 @@
         <form class="mt-8 space-y-6" action="{{ route('register') }}" method="POST">
             @csrf
             <div class="rounded-md shadow-sm space-y-4">
-                <div>
-                    <label for="company_name" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Название компании</label>
-                    <input id="company_name" name="company_name" type="text" required value="{{ old('company_name') }}"
-                           class="relative block w-full rounded-md border-0 py-2.5 px-3.5 bg-white dark:bg-secondary-800 text-secondary-900 dark:text-white placeholder:text-secondary-400 dark:placeholder:text-secondary-500 focus:ring-2 focus:ring-inset focus:ring-primary-600 dark:focus:ring-primary-500 sm:text-sm sm:leading-6 @error('company_name') ring-red-500 focus:ring-red-500 @enderror"
-                           placeholder="Название компании">
-                    @error('company_name')
-                    <p class="mt-1 text-sm text-red-500 dark:text-red-400">{{ $message }}</p>
-                    @enderror
-                </div>
                 <div>
                     <label for="name" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Ваше имя</label>
                     <input id="name" name="name" type="text" required value="{{ old('name') }}"
