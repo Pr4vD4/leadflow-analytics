@@ -9,8 +9,8 @@
         <!-- Фоновые частицы для главного экрана -->
         <x-particles id="header-particles" />
 
-        <div class="relative z-10 mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
+        <div class="relative z-10 mx-auto max-w-7xl px-4 py-16 sm:px-2 lg:px-4">
+            <div class="grid grid-cols-1 items-center gap-6 lg:grid-cols-2">
                 <div data-aos="fade-right" data-aos-duration="1000">
                     <h1
                         class="font-heading text-4xl font-bold tracking-tight text-secondary-900 dark:text-white md:text-5xl lg:text-6xl">
@@ -32,7 +32,7 @@
                     </div>
                 </div>
                 <div class="flex justify-center" data-aos="fade-left" data-aos-duration="1000" data-aos-delay="200">
-                    <div class="relative h-[700px] w-full max-w-xl">
+                    <div class="relative h-[700px] w-full max-w-2xl">
                         <!-- Фоновые эффекты -->
                         <div
                             class="animate-blob absolute -left-6 -top-6 h-64 w-64 rounded-full bg-primary-200 opacity-70 mix-blend-multiply blur-xl filter dark:bg-primary-800/30 dark:mix-blend-overlay">
@@ -52,7 +52,7 @@
 
                             <!-- Текст аналитики -->
                             <div
-                                class="absolute left-1/2 top-1/2 z-20 w-4/5 -translate-x-1/2 -translate-y-1/2 transform text-center transition-all duration-500 ease-out">
+                                class="absolute left-1/2 top-1/2 z-20 w-4/5 -translate-x-1/2 -translate-y-1/2 transform text-center transition-all duration-500 ease-out pointer-events-none">
                                 <h3 class="mb-2 text-2xl font-bold text-secondary-800 dark:text-white">LeadFlow Analytics
                                 </h3>
                                 <p class="text-secondary-600 dark:text-secondary-300">Визуализация и анализ данных в
@@ -61,7 +61,7 @@
 
                             <!-- Стилизованные элементы диаграммы -->
                             <div
-                                class="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 transform items-end space-x-1 transition-all duration-500 ease-out">
+                                class="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 transform items-end space-x-1 transition-all duration-500 ease-out pointer-events-none">
                                 <div class="h-12 w-3 rounded-t-md bg-primary-500 opacity-80"></div>
                                 <div class="h-16 w-3 rounded-t-md bg-primary-600 opacity-80"></div>
                                 <div class="h-20 w-3 rounded-t-md bg-primary-700 opacity-80"></div>
@@ -70,7 +70,7 @@
                             </div>
 
                             <!-- Круговая диаграмма -->
-                            <div class="absolute right-8 top-6 z-20 transition-all duration-500 ease-out">
+                            <div class="absolute right-8 top-6 z-20 transition-all duration-500 ease-out pointer-events-none">
                                 <div class="relative h-16 w-16">
                                     <svg viewBox="0 0 36 36" class="h-full w-full">
                                         <path class="fill-primary-200 dark:fill-primary-800" d="M18 2.0845

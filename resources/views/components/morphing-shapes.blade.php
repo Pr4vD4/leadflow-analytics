@@ -1,7 +1,7 @@
 @props(['id'])
 
-<div id="{{ $id }}" class="w-full h-full relative z-0 pointer-events-none overflow-hidden">
-    <svg class="absolute inset-0 w-full h-full" preserveAspectRatio="xMidYMid slice" viewBox="0 0 1000 1000">
+<div id="{{ $id }}" class="w-full h-full relative z-0 overflow-hidden">
+    <svg class="absolute inset-0 w-full h-full cursor-pointer" preserveAspectRatio="xMidYMid slice" viewBox="0 0 1000 1000">
         <defs>
             <!-- Градиенты для линий и узлов -->
             <linearGradient id="line-gradient-{{ $id }}" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -157,6 +157,23 @@ document.addEventListener('DOMContentLoaded', () => {
         pulse: {
             size: { min: 20, max: 40 }, // размер эффекта пульсации
             duration: { min: 1.5, max: 2.5 } // продолжительность эффекта
+        },
+        // Настройки для интерактивных элементов при наведении курсора
+        interactive: {
+            enabled: true,                  // Включение/отключение интерактивных эффектов
+            maxCursorNodes: 3,              // Максимальное количество узлов, создаваемых при наведении
+            cursorNodeRadius: 80,           // Радиус вокруг курсора для создания узлов
+            nodeLifetime: { min: 7, max: 12 }, // Время жизни созданных узлов (в секундах) - увеличено
+            throttleInterval: 200,          // Интервал троттлинга для событий мыши (в мс)
+            cursorNodeSize: { min: 3, max: 8 }, // Размер узлов, создаваемых при наведении
+            gridDistortion: {
+                enabled: true,              // Включение/отключение искажения сетки
+                radius: 180,                // Радиус искажения сетки - увеличен
+                strength: 60,               // Сила искажения - увеличена
+                fadeRadius: 250,            // Радиус затухания эффекта - увеличен
+                duration: 0.5,              // Длительность анимации искажения (в секундах)
+                lensEffect: true            // Включение эффекта линзы
+            }
         }
     };
 
@@ -168,9 +185,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const nodes = [];
     const particleTimelines = [];
     const waveTimelines = [];
+    const cursorNodes = []; // Для хранения интерактивных узлов, созданных при наведении курсора
 
     // Таймеры для динамики узлов
-    let addNodeTimer, removeNodeTimer, processNodeTimer, waveTimer;
+    let addNodeTimer, removeNodeTimer, processNodeTimer, waveTimer, lastCursorMove;
+
+    // Для отслеживания позиции курсора
+    let cursorX = 0, cursorY = 0;
+    let isMouseInside = false;
+
+    // Координаты искаженной сетки
+    let distortedGridCoords = [];
+    let originalGridCoords = [];
+    let gridDistortionEnabled = false;
 
     // Размеры холста
     const viewBoxWidth = 1000;
@@ -211,9 +238,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const stepX = viewBoxWidth / config.grid.cols;
         const stepY = viewBoxHeight / config.grid.rows;
 
+        // Сохраняем оригинальные координаты сетки для искажения
+        originalGridCoords = [];
+
         // Создаем линии сетки
         for (let i = 1; i < config.grid.cols; i++) {
             const x = stepX * i;
+
+            // Сохраняем координаты вертикальных линий
+            originalGridCoords.push({
+                type: 'vertical',
+                index: i,
+                x1: x,
+                y1: 0,
+                x2: x,
+                y2: viewBoxHeight
+            });
+
             const line = createSvgElement('line', {
                 x1: x,
                 y1: 0,
@@ -221,13 +262,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 y2: viewBoxHeight,
                 stroke: isDarkMode ? 'white' : 'black',
                 'stroke-width': 0.5,
-                opacity: config.grid.opacity
+                opacity: config.grid.opacity,
+                'data-grid-line': 'vertical',
+                'data-index': i
             });
             gridLines.appendChild(line);
         }
 
         for (let i = 1; i < config.grid.rows; i++) {
             const y = stepY * i;
+
+            // Сохраняем координаты горизонтальных линий
+            originalGridCoords.push({
+                type: 'horizontal',
+                index: i,
+                x1: 0,
+                y1: y,
+                x2: viewBoxWidth,
+                y2: y
+            });
+
             const line = createSvgElement('line', {
                 x1: 0,
                 y1: y,
@@ -235,12 +289,187 @@ document.addEventListener('DOMContentLoaded', () => {
                 y2: y,
                 stroke: isDarkMode ? 'white' : 'black',
                 'stroke-width': 0.5,
-                opacity: config.grid.opacity
+                opacity: config.grid.opacity,
+                'data-grid-line': 'horizontal',
+                'data-index': i
             });
             gridLines.appendChild(line);
         }
 
+        // Копируем оригинальные координаты для использования в искажении
+        distortedGridCoords = JSON.parse(JSON.stringify(originalGridCoords));
+
         console.log(`Создана сетка: ${gridLines.children.length} линий`);
+    }
+
+    // Функция для искажения сетки
+    function distortGrid(cursorX, cursorY, strength = config.interactive.gridDistortion.strength) {
+        if (!config.interactive.gridDistortion.enabled || !isMouseInside) return;
+
+        const radius = config.interactive.gridDistortion.radius;
+        const fadeRadius = config.interactive.gridDistortion.fadeRadius;
+        const lensEffect = config.interactive.gridDistortion.lensEffect;
+
+        // Обновляем искаженные координаты
+        for (let i = 0; i < originalGridCoords.length; i++) {
+            const orig = originalGridCoords[i];
+            const dist = distortedGridCoords[i];
+
+            if (orig.type === 'vertical') {
+                // Новый подход к искажению для вертикальных линий
+                const x = orig.x1; // Горизонтальная позиция линии
+
+                // Для каждой точки по высоте линии
+                for (let y = 0; y <= viewBoxHeight; y += viewBoxHeight / 20) {
+                    // Расстояние от точки до курсора
+                    const dx = x - cursorX;
+                    const dy = y - cursorY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    // Если точка в зоне воздействия
+                    if (distance < fadeRadius) {
+                        // Коэффициент искажения с плавным затуханием по краям
+                        let factor;
+
+                        if (lensEffect) {
+                            // Эффект линзы/выпуклости - максимальное искажение на границе радиуса,
+                            // минимальное в центре и за пределами fadeRadius
+                            if (distance < radius) {
+                                // Внутри радиуса создаем эффект выпуклости
+                                // Формула создает куполообразную форму с 0 в центре,
+                                // возрастающую к границе radius
+                                factor = (distance / radius) * (1 - Math.pow(distance / radius, 2));
+                                factor = factor * 2.5; // Усиливаем эффект
+                            } else {
+                                // За пределами основного радиуса - затухание
+                                factor = Math.max(0, 1 - (distance - radius) / (fadeRadius - radius));
+                                factor = factor * 0.5; // Ослабляем эффект на границе
+                            }
+                        } else {
+                            // Обычное линейное затухание
+                            factor = Math.max(0, 1 - distance / fadeRadius);
+                        }
+
+                        // Финальная сила искажения
+                        const distortion = strength * factor;
+
+                        // Направление искажения (к курсору или от него)
+                        const angle = Math.atan2(dy, dx);
+
+                        // Искажение для X-координаты
+                        let distX = Math.cos(angle) * distortion;
+
+                        // Применяем искажение к крайним точкам линии
+                        if (y === 0) {
+                            dist.x1 = orig.x1 - distX;
+                        } else if (y === viewBoxHeight) {
+                            dist.x2 = orig.x2 - distX;
+                        }
+                    } else {
+                        // Точка вне зоны воздействия - возвращаем оригинальные координаты
+                        if (y === 0) {
+                            dist.x1 = orig.x1;
+                        } else if (y === viewBoxHeight) {
+                            dist.x2 = orig.x2;
+                        }
+                    }
+                }
+            } else if (orig.type === 'horizontal') {
+                // Подобный подход для горизонтальных линий
+                const y = orig.y1; // Вертикальная позиция линии
+
+                // Для каждой точки по ширине линии
+                for (let x = 0; x <= viewBoxWidth; x += viewBoxWidth / 20) {
+                    // Расстояние от точки до курсора
+                    const dx = x - cursorX;
+                    const dy = y - cursorY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    // Если точка в зоне воздействия
+                    if (distance < fadeRadius) {
+                        // Коэффициент искажения с плавным затуханием по краям
+                        let factor;
+
+                        if (lensEffect) {
+                            // Эффект линзы/выпуклости
+                            if (distance < radius) {
+                                factor = (distance / radius) * (1 - Math.pow(distance / radius, 2));
+                                factor = factor * 2.5; // Усиливаем эффект
+                            } else {
+                                factor = Math.max(0, 1 - (distance - radius) / (fadeRadius - radius));
+                                factor = factor * 0.5; // Ослабляем эффект на границе
+                            }
+                        } else {
+                            // Обычное линейное затухание
+                            factor = Math.max(0, 1 - distance / fadeRadius);
+                        }
+
+                        // Финальная сила искажения
+                        const distortion = strength * factor;
+
+                        // Направление искажения
+                        const angle = Math.atan2(dy, dx);
+
+                        // Искажение для Y-координаты
+                        let distY = Math.sin(angle) * distortion;
+
+                        // Применяем искажение к крайним точкам
+                        if (x === 0) {
+                            dist.y1 = orig.y1 - distY;
+                        } else if (x === viewBoxWidth) {
+                            dist.y2 = orig.y2 - distY;
+                        }
+                    } else {
+                        // Возвращаем оригинальные координаты
+                        if (x === 0) {
+                            dist.y1 = orig.y1;
+                        } else if (x === viewBoxWidth) {
+                            dist.y2 = orig.y2;
+                        }
+                    }
+                }
+            }
+
+            // Применяем искаженные координаты к элементам
+            const lineElement = gridLines.querySelector(`[data-grid-line="${orig.type}"][data-index="${orig.index}"]`);
+            if (lineElement) {
+                gsap.to(lineElement, {
+                    attr: {
+                        x1: dist.x1,
+                        y1: dist.y1,
+                        x2: dist.x2,
+                        y2: dist.y2
+                    },
+                    duration: config.interactive.gridDistortion.duration,
+                    ease: "power2.out"
+                });
+            }
+        }
+    }
+
+    // Функция для восстановления сетки
+    function resetGrid() {
+        // Возвращаем все линии к исходному положению
+        for (let i = 0; i < originalGridCoords.length; i++) {
+            const orig = originalGridCoords[i];
+            const lineElement = gridLines.querySelector(`[data-grid-line="${orig.type}"][data-index="${orig.index}"]`);
+
+            if (lineElement) {
+                gsap.to(lineElement, {
+                    attr: {
+                        x1: orig.x1,
+                        y1: orig.y1,
+                        x2: orig.x2,
+                        y2: orig.y2
+                    },
+                    duration: config.interactive.gridDistortion.duration,
+                    ease: "power2.out"
+                });
+            }
+        }
+
+        // Сбрасываем искаженные координаты
+        distortedGridCoords = JSON.parse(JSON.stringify(originalGridCoords));
     }
 
     // Создание узлов данных
@@ -1253,6 +1482,471 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Создание интерактивных узлов при движении курсора
+    function createCursorNode(x, y, isVisible = true) {
+        // Проверяем, не превышено ли максимальное количество узлов, созданных курсором
+        if (cursorNodes.length >= config.interactive.maxCursorNodes) {
+            // Если превышено, удаляем самый старый интерактивный узел
+            const oldestNode = cursorNodes.shift();
+            if (oldestNode.element && oldestNode.element.parentNode) {
+                fadeOutAndRemoveNode(oldestNode);
+            }
+        }
+
+        // Добавляем случайное смещение вокруг курсора
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.random() * config.interactive.cursorNodeRadius;
+        const nodeX = x + Math.cos(angle) * distance;
+        const nodeY = y + Math.sin(angle) * distance;
+
+        // Случайный размер узла
+        const size = config.interactive.cursorNodeSize.min +
+                     Math.random() * (config.interactive.cursorNodeSize.max - config.interactive.cursorNodeSize.min);
+
+        // Случайный тип узла (для курсора чаще создаем "обработанные" узлы)
+        const nodeTypes = [
+            { name: 'regular', probability: 0.4 },
+            { name: 'urgent', probability: 0.2 },
+            { name: 'processed', probability: 0.4 }
+        ];
+        const nodeType = getRandomWeightedItem(nodeTypes, 'probability');
+
+        // Определяем заливку и фильтр узла
+        let fill, filter;
+        switch(nodeType.name) {
+            case 'urgent':
+                fill = `url(#urgent-gradient-${containerId})`;
+                filter = `url(#strong-glow-${containerId})`;
+                break;
+            case 'processed':
+                fill = `url(#processed-gradient-${containerId})`;
+                filter = `url(#glow-${containerId})`;
+                break;
+            default: // regular
+                const colorData = nodeColors[Math.floor(Math.random() * nodeColors.length)];
+                fill = colorData.color;
+                filter = `url(#glow-${containerId})`;
+        }
+
+        // Создаем узел
+        const node = createSvgElement('circle', {
+            cx: nodeX,
+            cy: nodeY,
+            r: 0, // Начинаем с нулевого размера для анимации появления
+            fill: fill,
+            opacity: 0, // Начинаем с нулевой прозрачности
+            filter: filter,
+            'data-type': nodeType.name,
+            'data-cursor-node': 'true' // Метка, что это узел, созданный курсором
+        });
+
+        dataNodes.appendChild(node);
+
+        // Анимируем появление узла
+        gsap.to(node, {
+            r: size,
+            opacity: nodeType.name === 'regular' ? 0.8 : 0.9,
+            duration: 0.6,
+            ease: "power2.out"
+        });
+
+        // Настраиваем пульсацию узла
+        const timeline = gsap.timeline({
+            repeat: -1,
+            yoyo: true
+        });
+
+        // В зависимости от типа узла настраиваем анимацию
+        switch(nodeType.name) {
+            case 'urgent':
+                timeline.to(node, {
+                    r: size * 1.2,
+                    opacity: 0.95,
+                    duration: 1 + Math.random(),
+                    ease: "sine.inOut"
+                });
+                break;
+            case 'processed':
+                timeline.to(node, {
+                    r: size * 1.05,
+                    opacity: 0.85,
+                    duration: 2 + Math.random() * 2,
+                    ease: "sine.inOut"
+                });
+                break;
+            default: // regular
+                timeline.to(node, {
+                    r: size * (0.8 + Math.random() * 0.4),
+                    opacity: 0.75 + Math.random() * 0.2,
+                    duration: 2 + Math.random() * 3,
+                    ease: "sine.inOut"
+                });
+        }
+
+        // Создаем информацию об узле
+        const nodeObj = {
+            element: node,
+            x: nodeX,
+            y: nodeY,
+            size: size,
+            type: nodeType.name,
+            createdAt: Date.now(),
+            timeline: timeline,
+            // Время жизни узла в мс (случайное из настроек)
+            lifetime: (config.interactive.nodeLifetime.min +
+                      Math.random() * (config.interactive.nodeLifetime.max - config.interactive.nodeLifetime.min)) * 1000
+        };
+
+        // Добавляем узел в массив курсорных узлов
+        cursorNodes.push(nodeObj);
+
+        // Если узел видимый, обновляем соединения
+        if (isVisible) {
+            // Асинхронно обновляем соединения, чтобы не блокировать основной поток
+            requestAnimationFrame(() => {
+                createCursorConnections(nodeObj);
+            });
+
+            // Запускаем таймер для автоматического удаления узла
+            setTimeout(() => {
+                fadeOutAndRemoveNode(nodeObj);
+            }, nodeObj.lifetime);
+        }
+
+        return nodeObj;
+    }
+
+    // Плавное исчезновение и удаление узла
+    function fadeOutAndRemoveNode(nodeObj) {
+        // Проверяем, существует ли еще узел
+        if (!nodeObj || !nodeObj.element || !nodeObj.element.parentNode) return;
+
+        // Находим индекс узла в массиве
+        const nodeIndex = cursorNodes.indexOf(nodeObj);
+        if (nodeIndex !== -1) {
+            cursorNodes.splice(nodeIndex, 1);
+        }
+
+        // Останавливаем таймлайн
+        if (nodeObj.timeline) {
+            nodeObj.timeline.kill();
+        }
+
+        // Анимируем исчезновение
+        gsap.to(nodeObj.element, {
+            r: 0,
+            opacity: 0,
+            duration: 0.6,
+            ease: "power2.in",
+            onComplete: () => {
+                // Удаляем элемент из DOM
+                if (nodeObj.element.parentNode === dataNodes) {
+                    dataNodes.removeChild(nodeObj.element);
+                }
+
+                // Обновляем соединения после удаления узла
+                requestAnimationFrame(() => {
+                    updateConnections();
+                });
+            }
+        });
+    }
+
+    // Создание соединений для узла, созданного курсором
+    function createCursorConnections(cursorNode) {
+        // Создаем соединения между курсорным узлом и обычными узлами
+        for (let i = 0; i < nodes.length; i++) {
+            const otherNode = nodes[i];
+
+            // Проверка валидности узла
+            if (!otherNode || !otherNode.x) continue;
+
+            // Вычисляем расстояние между узлами
+            const dx = cursorNode.x - otherNode.x;
+            const dy = cursorNode.y - otherNode.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Если узлы достаточно близко, создаем соединение
+            if (distance < config.connections.maxDistance) {
+                // Определяем, есть ли среди них срочные или обработанные
+                const hasUrgent = cursorNode.type === 'urgent' || otherNode.type === 'urgent';
+                const hasProcessed = cursorNode.type === 'processed' || otherNode.type === 'processed';
+
+                // Толщина и прозрачность линии обратно пропорциональны расстоянию
+                const thickness = config.connections.thickness.max -
+                                (distance / config.connections.maxDistance) *
+                                (config.connections.thickness.max - config.connections.thickness.min);
+                const lineOpacity = config.connections.opacity * (1 - distance / config.connections.maxDistance);
+
+                // Создаем соединение
+                const line = createSvgElement('line', {
+                    x1: cursorNode.x,
+                    y1: cursorNode.y,
+                    x2: otherNode.x,
+                    y2: otherNode.y,
+                    stroke: `url(#line-gradient-${containerId})`,
+                    'stroke-width': thickness,
+                    opacity: 0, // Начинаем с нулевой прозрачности
+                    'data-cursor-connection': 'true' // Метка, что это соединение от курсора
+                });
+
+                connections.appendChild(line);
+
+                // Анимируем появление соединения
+                gsap.to(line, {
+                    opacity: lineOpacity,
+                    duration: 0.3,
+                    ease: "power2.out"
+                });
+
+                // Создаем движущиеся частицы для соединения
+                const particlesCount = Math.max(1, Math.floor(distance / 150)); // Меньше частиц для соединений курсора
+
+                for (let j = 0; j < particlesCount; j++) {
+                    // Выбираем цвет в зависимости от типов соединенных узлов
+                    let colorData;
+
+                    if (hasUrgent) {
+                        colorData = { color: '#EF4444', opacity: 0.8 };
+                    } else if (hasProcessed) {
+                        colorData = { color: '#22C55E', opacity: 0.7 };
+                    } else {
+                        colorData = particleColors[Math.floor(Math.random() * particleColors.length)];
+                    }
+
+                    const size = config.particles.minSize + Math.random() * (config.particles.maxSize - config.particles.minSize);
+
+                    // Создаем частицу
+                    const particle = createSvgElement('circle', {
+                        cx: cursorNode.x,
+                        cy: cursorNode.y,
+                        r: 0, // Начальный размер 0 для анимации появления
+                        fill: colorData.color,
+                        opacity: 0, // Начальная прозрачность 0 для анимации появления
+                        filter: `url(#particle-blur-${containerId})`,
+                        'data-cursor-particle': 'true' // Метка, что это частица от курсора
+                    });
+
+                    dataParticles.appendChild(particle);
+
+                    // Анимируем появление частицы
+                    gsap.to(particle, {
+                        r: size,
+                        opacity: colorData.opacity,
+                        duration: 0.4,
+                        ease: "power2.out",
+                        delay: Math.random() * 0.2
+                    });
+
+                    // Скорость движения
+                    const speedMultiplier = hasUrgent ? 1.5 : (hasProcessed ? 1.2 : 1);
+                    const speed = (config.particles.speed.min + Math.random() * (config.particles.speed.max - config.particles.speed.min)) * speedMultiplier;
+                    const duration = distance / speed;
+
+                    // Создаем анимацию движения частицы
+                    const timeline = gsap.timeline({
+                        repeat: -1,
+                        delay: (duration / particlesCount) * j % duration // Циклическая задержка
+                    });
+
+                    // Сохраняем связь с курсорным узлом
+                    timeline.data = {
+                        particleElement: particle,
+                        cursorNodeElement: cursorNode.element
+                    };
+
+                    // Анимация движения
+                    timeline.to(particle, {
+                        cx: otherNode.x,
+                        cy: otherNode.y,
+                        duration: duration,
+                        ease: "none"
+                    });
+
+                    timeline.to(particle, {
+                        cx: cursorNode.x,
+                        cy: cursorNode.y,
+                        duration: duration,
+                        ease: "none"
+                    });
+
+                    particleTimelines.push(timeline);
+
+                    // Когда курсорный узел удаляется, нужно также удалить его частицы
+                    // Это будет обработано в функции очистки
+                }
+            }
+        }
+
+        // Также создаем соединения между курсорными узлами
+        for (let i = 0; i < cursorNodes.length; i++) {
+            const otherCursorNode = cursorNodes[i];
+
+            // Пропускаем сам себя
+            if (otherCursorNode === cursorNode) continue;
+
+            // Проверка валидности узла
+            if (!otherCursorNode || !otherCursorNode.x) continue;
+
+            // Вычисляем расстояние между узлами
+            const dx = cursorNode.x - otherCursorNode.x;
+            const dy = cursorNode.y - otherCursorNode.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Если узлы достаточно близко, создаем соединение
+            if (distance < config.connections.maxDistance) {
+                // Толщина и прозрачность линии обратно пропорциональны расстоянию
+                const thickness = config.connections.thickness.max -
+                                (distance / config.connections.maxDistance) *
+                                (config.connections.thickness.max - config.connections.thickness.min);
+                const lineOpacity = config.connections.opacity * (1 - distance / config.connections.maxDistance);
+
+                // Создаем соединение
+                const line = createSvgElement('line', {
+                    x1: cursorNode.x,
+                    y1: cursorNode.y,
+                    x2: otherCursorNode.x,
+                    y2: otherCursorNode.y,
+                    stroke: `url(#line-gradient-${containerId})`,
+                    'stroke-width': thickness,
+                    opacity: 0, // Начинаем с нулевой прозрачности
+                    'data-cursor-connection': 'true' // Метка, что это соединение от курсора
+                });
+
+                connections.appendChild(line);
+
+                // Анимируем появление соединения
+                gsap.to(line, {
+                    opacity: lineOpacity,
+                    duration: 0.3,
+                    ease: "power2.out"
+                });
+            }
+        }
+    }
+
+    // Очистка соединений и частиц от удаленных курсорных узлов
+    function cleanupCursorElements() {
+        // Удаляем соединения от курсора
+        const cursorConnections = connections.querySelectorAll('[data-cursor-connection="true"]');
+        cursorConnections.forEach(connection => {
+            gsap.to(connection, {
+                opacity: 0,
+                duration: 0.3,
+                ease: "power2.in",
+                onComplete: () => {
+                    if (connection.parentNode === connections) {
+                        connections.removeChild(connection);
+                    }
+                }
+            });
+        });
+
+        // Удаляем частицы от курсора
+        const cursorParticles = dataParticles.querySelectorAll('[data-cursor-particle="true"]');
+        cursorParticles.forEach(particle => {
+            gsap.to(particle, {
+                opacity: 0,
+                r: 0,
+                duration: 0.3,
+                ease: "power2.in",
+                onComplete: () => {
+                    if (particle.parentNode === dataParticles) {
+                        dataParticles.removeChild(particle);
+                    }
+                }
+            });
+        });
+
+        // Останавливаем таймлайны частиц от курсора
+        for (let i = particleTimelines.length - 1; i >= 0; i--) {
+            const timeline = particleTimelines[i];
+            if (timeline.data && timeline.data.cursorNodeElement) {
+                timeline.kill();
+                particleTimelines.splice(i, 1);
+            }
+        }
+    }
+
+    // Обработчик движения мыши для создания интерактивных узлов
+    function handleMouseMove(event) {
+        if (!config.interactive.enabled) return;
+
+        // Применяем троттлинг для уменьшения нагрузки
+        const now = Date.now();
+        if (lastCursorMove && now - lastCursorMove < config.interactive.throttleInterval) {
+            // Даже при троттлинге обновляем позицию курсора для искажения сетки
+            updateCursorPosition(event);
+            return;
+        }
+        lastCursorMove = now;
+
+        // Обновляем позицию курсора
+        updateCursorPosition(event);
+
+        // Создаем новый узел рядом с курсором
+        createCursorNode(cursorX, cursorY);
+
+        // Применяем искажение сетки
+        if (config.interactive.gridDistortion.enabled) {
+            distortGrid(cursorX, cursorY);
+        }
+    }
+
+    // Обновление позиции курсора
+    function updateCursorPosition(event) {
+        const svgRect = svg.getBoundingClientRect();
+        cursorX = (event.clientX - svgRect.left) / svgRect.width * viewBoxWidth;
+        cursorY = (event.clientY - svgRect.top) / svgRect.height * viewBoxHeight;
+    }
+
+    // Обработчик входа мыши в область SVG
+    function handleMouseEnter(event) {
+        if (!config.interactive.enabled) return;
+
+        isMouseInside = true;
+
+        // Обновляем курсор для начального положения
+        updateCursorPosition(event);
+
+        // Создаем начальные узлы при входе курсора
+        for (let i = 0; i < Math.min(2, config.interactive.maxCursorNodes); i++) {
+            setTimeout(() => {
+                if (isMouseInside) { // Проверяем, что курсор все еще внутри
+                    createCursorNode(cursorX, cursorY);
+                }
+            }, i * 300); // Создаем с небольшой задержкой для эффекта появления
+        }
+
+        // Активируем искажение сетки
+        if (config.interactive.gridDistortion.enabled) {
+            gridDistortionEnabled = true;
+            distortGrid(cursorX, cursorY);
+        }
+    }
+
+    // Обработчик выхода мыши из области SVG
+    function handleMouseLeave(event) {
+        if (!config.interactive.enabled) return;
+
+        isMouseInside = false;
+
+        // Очищаем все элементы, связанные с курсором
+        cursorNodes.forEach(node => {
+            fadeOutAndRemoveNode(node);
+        });
+        cursorNodes.length = 0;
+
+        // Очищаем соединения и частицы
+        cleanupCursorElements();
+
+        // Сбрасываем искажение сетки
+        if (config.interactive.gridDistortion.enabled) {
+            gridDistortionEnabled = false;
+            resetGrid();
+        }
+    }
+
     // Инициализация анимации
     function initAnimation() {
         createGrid();
@@ -1286,6 +1980,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         observer.observe(document.documentElement, { attributes: true });
+
+        // Добавляем интерактивные обработчики событий курсора
+        if (config.interactive.enabled) {
+            // Удаляем класс pointer-events-none с контейнера
+            container.classList.remove('pointer-events-none');
+
+            // Добавляем обработчики событий
+            svg.addEventListener('mousemove', handleMouseMove);
+            svg.addEventListener('mouseenter', handleMouseEnter);
+            svg.addEventListener('mouseleave', handleMouseLeave);
+
+            console.log('Интерактивность включена: обработчики событий курсора добавлены');
+        }
     }
 
     // Очистка при уничтожении компонента
@@ -1317,6 +2024,13 @@ document.addEventListener('DOMContentLoaded', () => {
         waveTimelines.forEach(timeline => {
             timeline.kill();
         });
+
+        // Удаляем обработчики событий курсора
+        if (config.interactive.enabled) {
+            svg.removeEventListener('mousemove', handleMouseMove);
+            svg.removeEventListener('mouseenter', handleMouseEnter);
+            svg.removeEventListener('mouseleave', handleMouseLeave);
+        }
     }
 
     // Запускаем инициализацию
