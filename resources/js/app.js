@@ -3,6 +3,10 @@ import Alpine from 'alpinejs';
 import AOS from 'aos';
 import { tsParticles } from "tsparticles-engine";
 import { loadSlim } from "tsparticles-slim";
+import { gsap } from "gsap";
+
+// Делаем GSAP доступным глобально
+window.gsap = gsap;
 
 // Инициализация tsParticles
 window.initParticles = async function(containerId) {
