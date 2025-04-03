@@ -14,9 +14,27 @@
                 <stop offset="100%" stop-color="rgba(79, 70, 229, 0.8)" /> <!-- primary-600 -->
             </linearGradient>
 
+            <!-- Градиент для сверхвысокого приоритета -->
+            <linearGradient id="urgent-gradient-{{ $id }}" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="rgba(239, 68, 68, 0.7)" /> <!-- red-500 -->
+                <stop offset="100%" stop-color="rgba(220, 38, 38, 0.9)" /> <!-- red-600 -->
+            </linearGradient>
+
+            <!-- Градиент для обработанных данных -->
+            <linearGradient id="processed-gradient-{{ $id }}" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="rgba(34, 197, 94, 0.6)" /> <!-- green-500 -->
+                <stop offset="100%" stop-color="rgba(22, 163, 74, 0.8)" /> <!-- green-600 -->
+            </linearGradient>
+
             <!-- Свечение для узлов -->
             <filter id="glow-{{ $id }}" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur stdDeviation="5" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+
+            <!-- Усиленное свечение для новых узлов -->
+            <filter id="strong-glow-{{ $id }}" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="8" result="blur" />
                 <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
 
@@ -24,13 +42,26 @@
             <filter id="particle-blur-{{ $id }}" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="1" />
             </filter>
+
+            <!-- Фильтр для волны активности -->
+            <filter id="wave-blur-{{ $id }}">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="3" />
+            </filter>
+
+            <!-- Анимация пульсации -->
+            <radialGradient id="pulse-gradient-{{ $id }}" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                <stop offset="0%" stop-color="rgba(79, 70, 229, 0.7)" stop-opacity="0.8" />
+                <stop offset="100%" stop-color="rgba(79, 70, 229, 0)" stop-opacity="0" />
+            </radialGradient>
         </defs>
 
         <!-- Основные слои -->
+        <g class="wave-effects"></g>
         <g class="grid-lines"></g>
         <g class="data-nodes"></g>
         <g class="connections"></g>
         <g class="data-particles"></g>
+        <g class="pulse-effects"></g>
     </svg>
 </div>
 
@@ -41,10 +72,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!container) return;
 
     const svg = container.querySelector('svg');
+    const waveEffects = svg.querySelector('.wave-effects');
     const gridLines = svg.querySelector('.grid-lines');
     const dataNodes = svg.querySelector('.data-nodes');
     const connections = svg.querySelector('.connections');
     const dataParticles = svg.querySelector('.data-particles');
+    const pulseEffects = svg.querySelector('.pulse-effects');
 
     const isDarkMode = document.documentElement.classList.contains('dark');
 
@@ -58,9 +91,16 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         // Узлы (представляют точки данных)
         nodes: {
-            count: 12,
+            initialCount: 8,
+            maxCount: 15,
             minSize: 5,
             maxSize: 12,
+            // Категории узлов (имитируют разные типы заявок)
+            types: [
+                { name: 'regular', probability: 0.7 }, // обычные заявки
+                { name: 'urgent', probability: 0.15 }, // срочные заявки
+                { name: 'processed', probability: 0.15 } // обработанные заявки
+            ],
             colors: {
                 light: [
                     { color: '#4F46E5', opacity: 0.8 }, // primary-600
@@ -74,6 +114,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     { color: '#818CF8', opacity: 0.8 }, // indigo-400
                     { color: '#C7D2FE', opacity: 0.7 }  // indigo-200
                 ]
+            },
+            // Динамика узлов
+            dynamics: {
+                addInterval: { min: 5000, max: 8000 }, // интервал добавления новых узлов
+                removeInterval: { min: 10000, max: 15000 }, // интервал удаления старых узлов
+                processInterval: { min: 5000, max: 10000 } // интервал обработки узлов
             }
         },
         // Соединения между узлами
@@ -100,6 +146,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     { color: '#818CF8', opacity: 0.7 }  // indigo-400
                 ]
             }
+        },
+        // Волны активности
+        waves: {
+            interval: { min: 8000, max: 15000 }, // интервал генерации новых волн
+            duration: { min: 3, max: 5 }, // продолжительность анимации волны
+            size: { min: 50, max: 150 } // размер волны
+        },
+        // Эффекты пульсации
+        pulse: {
+            size: { min: 20, max: 40 }, // размер эффекта пульсации
+            duration: { min: 1.5, max: 2.5 } // продолжительность эффекта
         }
     };
 
@@ -110,6 +167,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Хранение созданных элементов
     const nodes = [];
     const particleTimelines = [];
+    const waveTimelines = [];
+
+    // Таймеры для динамики узлов
+    let addNodeTimer, removeNodeTimer, processNodeTimer, waveTimer;
 
     // Размеры холста
     const viewBoxWidth = 1000;
@@ -124,188 +185,433 @@ document.addEventListener('DOMContentLoaded', () => {
         return element;
     }
 
+    // Функция для выбора случайного элемента из массива с учетом весов
+    function getRandomWeightedItem(items, weightProp) {
+        const totalWeight = items.reduce((sum, item) => sum + item[weightProp], 0);
+        let random = Math.random() * totalWeight;
+
+        for (const item of items) {
+            random -= item[weightProp];
+            if (random <= 0) {
+                return item;
+            }
+        }
+
+        return items[0]; // Если что-то пошло не так, вернем первый элемент
+    }
+
     // Создание фоновой сетки
     function createGrid() {
-        const { rows, cols, opacity } = config.grid;
-        const gridColor = isDarkMode ? 'rgba(255, 255, 255, ' + opacity + ')' : 'rgba(0, 0, 0, ' + opacity + ')';
+        // Очищаем предыдущую сетку
+        while (gridLines.firstChild) {
+            gridLines.removeChild(gridLines.firstChild);
+        }
 
-        // Вертикальные линии
-        const xStep = viewBoxWidth / cols;
-        for (let i = 1; i < cols; i++) {
-            const x = xStep * i;
+        // Высчитываем шаг сетки
+        const stepX = viewBoxWidth / config.grid.cols;
+        const stepY = viewBoxHeight / config.grid.rows;
+
+        // Создаем линии сетки
+        for (let i = 1; i < config.grid.cols; i++) {
+            const x = stepX * i;
             const line = createSvgElement('line', {
                 x1: x,
                 y1: 0,
                 x2: x,
                 y2: viewBoxHeight,
-                stroke: gridColor,
-                'stroke-width': '1',
-                'stroke-dasharray': '5, 15'
+                stroke: isDarkMode ? 'white' : 'black',
+                'stroke-width': 0.5,
+                opacity: config.grid.opacity
             });
             gridLines.appendChild(line);
         }
 
-        // Горизонтальные линии
-        const yStep = viewBoxHeight / rows;
-        for (let i = 1; i < rows; i++) {
-            const y = yStep * i;
+        for (let i = 1; i < config.grid.rows; i++) {
+            const y = stepY * i;
             const line = createSvgElement('line', {
                 x1: 0,
                 y1: y,
                 x2: viewBoxWidth,
                 y2: y,
-                stroke: gridColor,
-                'stroke-width': '1',
-                'stroke-dasharray': '5, 15'
+                stroke: isDarkMode ? 'white' : 'black',
+                'stroke-width': 0.5,
+                opacity: config.grid.opacity
             });
             gridLines.appendChild(line);
         }
+
+        console.log(`Создана сетка: ${gridLines.children.length} линий`);
     }
 
     // Создание узлов данных
-    function createNodes() {
-        for (let i = 0; i < config.nodes.count; i++) {
-            // Случайные координаты с отступами от краев
-            const x = 100 + Math.random() * (viewBoxWidth - 200);
-            const y = 100 + Math.random() * (viewBoxHeight - 200);
-            const size = config.nodes.minSize + Math.random() * (config.nodes.maxSize - config.nodes.minSize);
+    function createNodes(count) {
+        for (let i = 0; i < count; i++) {
+            createNode();
+        }
+    }
 
-            // Выбираем случайный цвет из набора
-            const colorData = nodeColors[Math.floor(Math.random() * nodeColors.length)];
+    // Функция создания одного узла
+    function createNode(isNewNode = false) {
+        if (nodes.length >= config.nodes.maxCount) return;
 
-            // Создаем узел
-            const node = createSvgElement('circle', {
-                cx: x,
-                cy: y,
-                r: size,
-                fill: colorData.color,
-                opacity: colorData.opacity,
-                filter: `url(#glow-${containerId})`
-            });
+        // Случайные координаты с отступами от краев
+        const x = 100 + Math.random() * (viewBoxWidth - 200);
+        const y = 100 + Math.random() * (viewBoxHeight - 200);
+        const size = config.nodes.minSize + Math.random() * (config.nodes.maxSize - config.nodes.minSize);
 
-            dataNodes.appendChild(node);
+        // Выбираем случайный тип узла
+        const nodeType = getRandomWeightedItem(config.nodes.types, 'probability');
 
-            // Сохраняем информацию об узле
-            nodes.push({
-                element: node,
-                x: x,
-                y: y,
-                size: size,
-                // Анимация пульсации
-                timeline: gsap.timeline({
-                    repeat: -1,
-                    yoyo: true
-                }).to(node, {
+        // Выбираем цвет и фильтр в зависимости от типа
+        let fill, filter;
+
+        switch(nodeType.name) {
+            case 'urgent':
+                fill = `url(#urgent-gradient-${containerId})`;
+                filter = isNewNode ? `url(#strong-glow-${containerId})` : `url(#glow-${containerId})`;
+                break;
+            case 'processed':
+                fill = `url(#processed-gradient-${containerId})`;
+                filter = `url(#glow-${containerId})`;
+                break;
+            default: // regular
+                const colorData = nodeColors[Math.floor(Math.random() * nodeColors.length)];
+                fill = colorData.color;
+                filter = isNewNode ? `url(#strong-glow-${containerId})` : `url(#glow-${containerId})`;
+        }
+
+        // Создаем узел с начальной прозрачностью 0 и размером 0 если это новый узел
+        const initialOpacity = isNewNode ? 0 : (nodeType.name === 'regular' ? 0.8 : 0.9);
+        const initialSize = isNewNode ? 0 : size;
+
+        const node = createSvgElement('circle', {
+            cx: x,
+            cy: y,
+            r: initialSize,
+            fill: fill,
+            opacity: initialOpacity,
+            filter: filter,
+            'data-type': nodeType.name
+        });
+
+        dataNodes.appendChild(node);
+
+        // Сохраняем информацию об узле
+        const nodeObj = {
+            element: node,
+            x: x,
+            y: y,
+            size: size,
+            type: nodeType.name,
+            createdAt: Date.now(),
+            // Анимация пульсации (в зависимости от типа)
+            timeline: gsap.timeline({
+                repeat: -1,
+                yoyo: true
+            })
+        };
+
+        // Настраиваем анимацию пульсации в зависимости от типа узла
+        switch(nodeType.name) {
+            case 'urgent':
+                nodeObj.timeline.to(node, {
+                    r: size * 1.2,
+                    opacity: 0.95,
+                    duration: 1 + Math.random(),
+                    ease: "sine.inOut"
+                });
+                break;
+            case 'processed':
+                nodeObj.timeline.to(node, {
+                    r: size * 1.05,
+                    opacity: 0.85,
+                    duration: 2 + Math.random() * 2,
+                    ease: "sine.inOut"
+                });
+                break;
+            default: // regular
+                nodeObj.timeline.to(node, {
                     r: size * (0.8 + Math.random() * 0.4),
-                    opacity: colorData.opacity * (0.8 + Math.random() * 0.4),
+                    opacity: 0.75 + Math.random() * 0.2,
                     duration: 2 + Math.random() * 3,
                     ease: "sine.inOut"
-                })
+                });
+        }
+
+        nodes.push(nodeObj);
+
+        // Если это новый узел, используем requestAnimationFrame для асинхронного обновления соединений
+        // Это предотвратит блокировку основного потока и паузы в анимации
+        if (isNewNode && nodes.length > 1) {
+            // Сначала сделаем анимацию появления, не блокируя основной поток
+            gsap.to(node, {
+                r: size,
+                opacity: nodeType.name === 'regular' ? 0.8 : 0.9,
+                duration: 1.2,
+                ease: "elastic.out(1, 0.5)", // Эффект упругого появления
+                onComplete: () => {
+                    // Добавляем эффект пульсации при появлении
+                    createPulseEffect(x, y);
+
+                    // Используем requestAnimationFrame для асинхронного обновления соединений
+                    // после завершения анимации появления
+                    requestAnimationFrame(() => {
+                        updateConnectionsOptimized(nodeObj);
+                    });
+                }
+            });
+        } else if (isNewNode) {
+            // Анимируем появление узла, даже если это первый узел
+            gsap.to(node, {
+                r: size,
+                opacity: nodeType.name === 'regular' ? 0.8 : 0.9,
+                duration: 1.2,
+                ease: "elastic.out(1, 0.5)",
+                onComplete: () => {
+                    createPulseEffect(x, y);
+                }
+            });
+        }
+
+        return nodeObj;
+    }
+
+    // Оптимизированная функция обновления соединений, которая работает только с новым узлом
+    function updateConnectionsOptimized(newNode) {
+        // Создаем соединения только между новым узлом и существующими узлами
+        // Это гораздо эффективнее, чем пересчитывать все соединения
+        const newConnections = {};
+        const nodeIndex = nodes.indexOf(newNode);
+
+        if (nodeIndex === -1) return; // На всякий случай проверяем, что узел существует в массиве
+
+        // Проверяем соединения только между новым узлом и другими узлами
+        for (let i = 0; i < nodes.length; i++) {
+            if (i === nodeIndex) continue; // Пропускаем сам узел
+
+            const otherNode = nodes[i];
+
+            // Проверка валидности узла
+            if (!otherNode || !otherNode.x) continue;
+
+            // Вычисляем расстояние между узлами
+            const dx = newNode.x - otherNode.x;
+            const dy = newNode.y - otherNode.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Ключ для этого соединения (всегда используем меньший индекс первым)
+            const connectionKey = nodeIndex < i ? `${nodeIndex}-${i}` : `${i}-${nodeIndex}`;
+
+            // Если узлы достаточно близко, создаем соединение
+            if (distance < config.connections.maxDistance) {
+                // Создаем новое соединение
+                const thickness = config.connections.thickness.max -
+                                 (distance / config.connections.maxDistance) *
+                                 (config.connections.thickness.max - config.connections.thickness.min);
+                const lineOpacity = config.connections.opacity * (1 - distance / config.connections.maxDistance);
+
+                // Убедимся, что nodeIndex и i корректно определены
+                const sourceIndex = nodeIndex < i ? nodeIndex : i;
+                const targetIndex = nodeIndex < i ? i : nodeIndex;
+
+                const line = createSvgElement('line', {
+                    x1: nodes[sourceIndex].x,
+                    y1: nodes[sourceIndex].y,
+                    x2: nodes[targetIndex].x,
+                    y2: nodes[targetIndex].y,
+                    stroke: `url(#line-gradient-${containerId})`,
+                    'stroke-width': thickness,
+                    opacity: lineOpacity,
+                    'data-node-a': sourceIndex,
+                    'data-node-b': targetIndex,
+                    'data-connection-key': connectionKey
+                });
+
+                connections.appendChild(line);
+
+                // Отмечаем соединение как новое
+                newConnections[connectionKey] = {
+                    element: line,
+                    distance: distance
+                };
+            }
+        }
+
+        // Асинхронно создаем частицы только для новых соединений
+        if (Object.keys(newConnections).length > 0) {
+            requestAnimationFrame(() => {
+                updateParticlesForNewConnections(newConnections);
             });
         }
     }
 
-    // Создание соединений между узлами
-    function createConnections() {
-        // Для каждой пары узлов
-        for (let i = 0; i < nodes.length; i++) {
-            for (let j = i + 1; j < nodes.length; j++) {
-                const nodeA = nodes[i];
-                const nodeB = nodes[j];
+    // Удаление случайного узла
+    function removeRandomNode() {
+        if (nodes.length <= config.nodes.initialCount) return;
 
-                // Вычисляем расстояние между узлами
-                const dx = nodeA.x - nodeB.x;
-                const dy = nodeA.y - nodeB.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
+        // Выбираем случайный узел, не срочный
+        const regularNodes = nodes.filter(node => node.type !== 'urgent');
+        if (regularNodes.length === 0) return;
 
-                // Если узлы достаточно близко, создаем соединение
-                if (distance < config.connections.maxDistance) {
-                    // Толщина линии обратно пропорциональна расстоянию
-                    const thickness = config.connections.thickness.max -
-                                     (distance / config.connections.maxDistance) *
-                                     (config.connections.thickness.max - config.connections.thickness.min);
+        const randomIndex = Math.floor(Math.random() * regularNodes.length);
+        const nodeToRemove = regularNodes[randomIndex];
+        const nodeIndex = nodes.indexOf(nodeToRemove);
 
-                    // Прозрачность линии также обратно пропорциональна расстоянию
-                    const lineOpacity = config.connections.opacity * (1 - distance / config.connections.maxDistance);
-
-                    // Создаем линию
-                    const line = createSvgElement('line', {
-                        x1: nodeA.x,
-                        y1: nodeA.y,
-                        x2: nodeB.x,
-                        y2: nodeB.y,
-                        stroke: `url(#line-gradient-${containerId})`,
-                        'stroke-width': thickness,
-                        opacity: lineOpacity
-                    });
-
-                    connections.appendChild(line);
+        // Анимация исчезновения
+        gsap.to(nodeToRemove.element, {
+            opacity: 0,
+            r: nodeToRemove.size * 0.5,
+            duration: 1,
+            ease: "power2.in",
+            onComplete: () => {
+                // Удаляем элемент из DOM
+                if (nodeToRemove.element.parentNode === dataNodes) {
+                    dataNodes.removeChild(nodeToRemove.element);
                 }
+
+                // Удаляем из массива
+                if (nodeIndex !== -1) {
+                    nodes.splice(nodeIndex, 1);
+                }
+
+                // Обновляем соединения асинхронно
+                requestAnimationFrame(() => {
+                    updateConnections();
+                });
             }
-        }
+        });
     }
 
-    // Создание движущихся частиц (поток данных)
-    function createParticles() {
-        // Для каждой пары соединенных узлов создаем частицы
-        for (let i = 0; i < connections.children.length; i++) {
-            const connection = connections.children[i];
+    // Обработка случайного узла (изменение типа)
+    function processRandomNode() {
+        // Ищем узлы, которые можно обработать (не processed)
+        const unprocessedNodes = nodes.filter(node => node.type !== 'processed');
+        if (unprocessedNodes.length === 0) return;
+
+        const randomIndex = Math.floor(Math.random() * unprocessedNodes.length);
+        const nodeToProcess = unprocessedNodes[randomIndex];
+
+        // Меняем тип на processed
+        nodeToProcess.type = 'processed';
+        nodeToProcess.element.setAttribute('data-type', 'processed');
+
+        // Анимация обработки
+        gsap.to(nodeToProcess.element, {
+            fill: `url(#processed-gradient-${containerId})`,
+            duration: 1,
+            ease: "power2.inOut"
+        });
+
+        // Обновляем анимацию пульсации
+        nodeToProcess.timeline.clear();
+        nodeToProcess.timeline.to(nodeToProcess.element, {
+            r: nodeToProcess.size * 1.05,
+            opacity: 0.85,
+            duration: 2 + Math.random() * 2,
+            ease: "sine.inOut",
+            repeat: -1,
+            yoyo: true
+        });
+
+        // Добавляем эффект волны при обработке
+        createWaveEffect(nodeToProcess.x, nodeToProcess.y);
+    }
+
+    // Функция для обновления только частиц для новых соединений
+    function updateParticlesForNewConnections(newConnections) {
+        // Создаем новые частицы только для новых соединений
+        for (const key in newConnections) {
+            const connection = newConnections[key].element;
             const x1 = parseFloat(connection.getAttribute('x1'));
             const y1 = parseFloat(connection.getAttribute('y1'));
             const x2 = parseFloat(connection.getAttribute('x2'));
             const y2 = parseFloat(connection.getAttribute('y2'));
+            const distance = newConnections[key].distance;
+
+            // Получаем индексы узлов
+            const nodeAIndex = parseInt(connection.getAttribute('data-node-a'));
+            const nodeBIndex = parseInt(connection.getAttribute('data-node-b'));
+
+            // Проверяем, что индексы узлов корректны
+            if (isNaN(nodeAIndex) || isNaN(nodeBIndex) ||
+                nodeAIndex >= nodes.length || nodeBIndex >= nodes.length) {
+                continue;
+            }
+
+            // Определяем, есть ли среди них срочные или обработанные
+            const hasUrgent = nodes[nodeAIndex].type === 'urgent' || nodes[nodeBIndex].type === 'urgent';
+            const hasProcessed = nodes[nodeAIndex].type === 'processed' || nodes[nodeBIndex].type === 'processed';
 
             // Определяем количество частиц на этом пути (в зависимости от длины)
-            const dx = x2 - x1;
-            const dy = y2 - y1;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const particlesCount = Math.max(1, Math.floor(distance / 100) + 1);
+            const particlesCount = Math.max(1, Math.floor(distance / 100));
 
-            for (let j = 0; j < particlesCount; j++) {
-                // Выбираем случайный цвет
-                const colorData = particleColors[Math.floor(Math.random() * particleColors.length)];
+            // Создаем по одной частице за раз, используя микрозадержки, чтобы не блокировать основной поток
+            const createParticlesSequentially = (index) => {
+                if (index >= particlesCount + 1) return;
+
+                // Выбираем цвет в зависимости от типов соединенных узлов
+                let colorData;
+
+                if (hasUrgent) {
+                    // Срочные частицы (красноватые)
+                    colorData = { color: '#EF4444', opacity: 0.8 };
+                } else if (hasProcessed) {
+                    // Обработанные частицы (зеленоватые)
+                    colorData = { color: '#22C55E', opacity: 0.7 };
+                } else {
+                    // Обычные частицы
+                    colorData = particleColors[Math.floor(Math.random() * particleColors.length)];
+                }
+
                 const size = config.particles.minSize + Math.random() * (config.particles.maxSize - config.particles.minSize);
 
-                // Создаем частицу
+                // Создаем частицу (начальное положение - в начале линии)
                 const particle = createSvgElement('circle', {
                     cx: x1,
                     cy: y1,
-                    r: size,
+                    r: 0, // Начальный размер 0 для анимации появления
                     fill: colorData.color,
-                    opacity: colorData.opacity,
-                    filter: `url(#particle-blur-${containerId})`
+                    opacity: 0, // Начальная прозрачность 0 для анимации появления
+                    filter: `url(#particle-blur-${containerId})`,
+                    'data-connection': key
                 });
 
                 dataParticles.appendChild(particle);
 
-                // Скорость движения
-                const speed = config.particles.speed.min + Math.random() * (config.particles.speed.max - config.particles.speed.min);
+                // Анимируем появление частицы
+                gsap.to(particle, {
+                    r: size,
+                    opacity: colorData.opacity,
+                    duration: 0.6,
+                    ease: "power2.out",
+                    delay: Math.random() * 0.3
+                });
+
+                // Скорость движения (срочные быстрее)
+                const speedMultiplier = hasUrgent ? 1.5 : (hasProcessed ? 1.2 : 1);
+                const speed = (config.particles.speed.min + Math.random() * (config.particles.speed.max - config.particles.speed.min)) * speedMultiplier;
                 const duration = distance / speed;
 
-                // Анимация движения частицы от одного узла к другому
+                // Задержка старта для распределения частиц по линии
+                const startDelay = (duration / particlesCount) * index;
+
+                // Создаем простую GSAP-анимацию для частицы
                 const timeline = gsap.timeline({
                     repeat: -1,
-                    onComplete: () => timeline.restart()
+                    delay: startDelay % duration // Циклическая задержка
                 });
 
-                // Случайное начальное положение на пути
-                const randomStart = Math.random();
+                // Сохраняем ссылку на элемент частицы
+                timeline.data = { particleElement: particle };
 
-                // Начинаем с рассчитанной точки на линии
-                gsap.set(particle, {
-                    cx: x1 + dx * randomStart,
-                    cy: y1 + dy * randomStart
-                });
-
-                // Дальше анимируем до конца линии
+                // Анимация движения от начала к концу и обратно
                 timeline.to(particle, {
                     cx: x2,
                     cy: y2,
-                    duration: duration * (1 - randomStart),
+                    duration: duration,
                     ease: "none"
                 });
 
-                // Затем анимируем от начала до той же точки
                 timeline.to(particle, {
                     cx: x1,
                     cy: y1,
@@ -313,63 +619,662 @@ document.addEventListener('DOMContentLoaded', () => {
                     ease: "none"
                 });
 
-                // Анимируем от начала до случайной точки
+                particleTimelines.push(timeline);
+
+                // Создаем следующую частицу с небольшой задержкой
+                setTimeout(() => {
+                    createParticlesSequentially(index + 1);
+                }, 10); // Маленькая задержка, чтобы не блокировать основной поток
+            };
+
+            // Начинаем создавать частицы последовательно
+            createParticlesSequentially(0);
+        }
+    }
+
+    // Создание эффекта пульсации
+    function createPulseEffect(x, y) {
+        const size = config.pulse.size.min + Math.random() * (config.pulse.size.max - config.pulse.size.min);
+        const duration = config.pulse.duration.min + Math.random() * (config.pulse.duration.max - config.pulse.duration.min);
+
+        const pulse = createSvgElement('circle', {
+            cx: x,
+            cy: y,
+            r: 0, // Начинаем с нулевого размера
+            fill: `url(#pulse-gradient-${containerId})`,
+            opacity: 0, // Начинаем с нулевой прозрачности
+            filter: `url(#glow-${containerId})`
+        });
+
+        pulseEffects.appendChild(pulse);
+
+        // Улучшенная анимация пульсации и исчезновения
+        const timeline = gsap.timeline({
+            onComplete: () => {
+                pulse.remove();
+            }
+        });
+
+        // Сначала быстро увеличиваем размер и прозрачность
+        timeline.to(pulse, {
+            r: size * 0.5,
+            opacity: 0.8,
+            duration: duration * 0.3,
+            ease: "power2.out"
+        });
+
+        // Затем медленно увеличиваем и снижаем прозрачность
+        timeline.to(pulse, {
+            r: size,
+            opacity: 0,
+            duration: duration * 0.7,
+            ease: "power2.in"
+        });
+    }
+
+    // Создание эффекта волны активности
+    function createWaveEffect(x, y) {
+        const size = config.waves.size.min + Math.random() * (config.waves.size.max - config.waves.size.min);
+        const duration = config.waves.duration.min + Math.random() * (config.waves.duration.max - config.waves.duration.min);
+
+        const wave = createSvgElement('circle', {
+            cx: x,
+            cy: y,
+            r: 0, // Начинаем с нулевого размера
+            stroke: isDarkMode ? 'rgba(129, 140, 248, 0.4)' : 'rgba(79, 70, 229, 0.3)',
+            'stroke-width': 2,
+            fill: 'none',
+            opacity: 0, // Начинаем с нулевой прозрачности
+            filter: `url(#wave-blur-${containerId})`
+        });
+
+        waveEffects.appendChild(wave);
+
+        // Улучшенная анимация расширения и исчезновения с двумя стадиями
+        const timeline = gsap.timeline({
+            onComplete: () => {
+                waveEffects.removeChild(wave);
+                const index = waveTimelines.indexOf(timeline);
+                if (index !== -1) {
+                    waveTimelines.splice(index, 1);
+                }
+            }
+        });
+
+        // Первая стадия: появление и начальное расширение
+        timeline.to(wave, {
+            r: size * 0.4,
+            opacity: 0.8,
+            duration: duration * 0.3,
+            ease: "power2.out"
+        });
+
+        // Вторая стадия: дальнейшее расширение и исчезновение
+        timeline.to(wave, {
+            r: size,
+            opacity: 0,
+            'stroke-width': 0.5,
+            duration: duration * 0.7,
+            ease: "power1.in"
+        });
+
+        waveTimelines.push(timeline);
+    }
+
+    // Создание сильной волны активности (независимо от узла)
+    function createRandomWave() {
+        const x = Math.random() * viewBoxWidth;
+        const y = Math.random() * viewBoxHeight;
+
+        createWaveEffect(x, y);
+
+        // Планируем следующую волну
+        scheduleNextWave();
+    }
+
+    // Планирование следующей волны
+    function scheduleNextWave() {
+        const delay = config.waves.interval.min + Math.random() * (config.waves.interval.max - config.waves.interval.min);
+        waveTimer = setTimeout(createRandomWave, delay);
+    }
+
+    // Создание соединений между узлами (с сохранением существующих соединений)
+    function createConnections() {
+        // Сохраняем существующие соединения для сравнения
+        const existingConnections = {};
+        for (let i = 0; i < connections.children.length; i++) {
+            const connection = connections.children[i];
+            const nodeAIndex = parseInt(connection.getAttribute('data-node-a'));
+            const nodeBIndex = parseInt(connection.getAttribute('data-node-b'));
+            const key = `${nodeAIndex}-${nodeBIndex}`;
+            existingConnections[key] = {
+                element: connection,
+                x1: parseFloat(connection.getAttribute('x1')),
+                y1: parseFloat(connection.getAttribute('y1')),
+                x2: parseFloat(connection.getAttribute('x2')),
+                y2: parseFloat(connection.getAttribute('y2'))
+            };
+        }
+
+        // Для определения новых и сохраненных соединений
+        const newConnections = {};
+        const keptConnections = {};
+        const removedConnections = {...existingConnections}; // Копия для отслеживания удаленных
+
+        // Проверка наличия узлов
+        if (nodes.length === 0) {
+            console.log("Не найдено узлов для создания соединений");
+            return;
+        }
+
+        console.log(`Найдено ${nodes.length} узлов для создания соединений`);
+
+        // Для каждой пары узлов проверяем расстояние и создаем/обновляем соединения
+        for (let i = 0; i < nodes.length; i++) {
+            for (let j = i + 1; j < nodes.length; j++) {
+                const nodeA = nodes[i];
+                const nodeB = nodes[j];
+
+                // Проверка валидности узлов
+                if (!nodeA || !nodeB || !nodeA.x || !nodeB.x) {
+                    console.log(`Невалидная пара узлов: узел A (${i}): ${Boolean(nodeA)}, узел B (${j}): ${Boolean(nodeB)}`);
+                    continue;
+                }
+
+                // Вычисляем расстояние между узлами
+                const dx = nodeA.x - nodeB.x;
+                const dy = nodeA.y - nodeB.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // Ключ для этого соединения
+                const connectionKey = `${i}-${j}`;
+
+                // Если узлы достаточно близко, создаем/обновляем соединение
+                if (distance < config.connections.maxDistance) {
+                    // Проверяем, существует ли уже такое соединение
+                    if (existingConnections[connectionKey]) {
+                        // Если существует, обновляем координаты
+                        const existingConnection = existingConnections[connectionKey].element;
+
+                        existingConnection.setAttribute('x1', nodeA.x);
+                        existingConnection.setAttribute('y1', nodeA.y);
+                        existingConnection.setAttribute('x2', nodeB.x);
+                        existingConnection.setAttribute('y2', nodeB.y);
+
+                        // Толщина и прозрачность обновляются
+                        const thickness = config.connections.thickness.max -
+                                         (distance / config.connections.maxDistance) *
+                                         (config.connections.thickness.max - config.connections.thickness.min);
+                        const lineOpacity = config.connections.opacity * (1 - distance / config.connections.maxDistance);
+
+                        existingConnection.setAttribute('stroke-width', thickness);
+                        existingConnection.setAttribute('opacity', lineOpacity);
+
+                        // Отмечаем соединение как сохраненное
+                        keptConnections[connectionKey] = {
+                            element: existingConnection,
+                            updated: true
+                        };
+
+                        // Удаляем из списка на удаление
+                        delete removedConnections[connectionKey];
+                    } else {
+                        // Создаем новое соединение
+                        const thickness = config.connections.thickness.max -
+                                         (distance / config.connections.maxDistance) *
+                                         (config.connections.thickness.max - config.connections.thickness.min);
+                        const lineOpacity = config.connections.opacity * (1 - distance / config.connections.maxDistance);
+
+                        const line = createSvgElement('line', {
+                            x1: nodeA.x,
+                            y1: nodeA.y,
+                            x2: nodeB.x,
+                            y2: nodeB.y,
+                            stroke: `url(#line-gradient-${containerId})`,
+                            'stroke-width': thickness,
+                            opacity: lineOpacity,
+                            'data-node-a': i,
+                            'data-node-b': j,
+                            'data-connection-key': connectionKey
+                        });
+
+                        connections.appendChild(line);
+
+                        // Отмечаем соединение как новое
+                        newConnections[connectionKey] = {
+                            element: line,
+                            distance: distance
+                        };
+                    }
+                }
+            }
+        }
+
+        // Удаляем соединения, которые больше не нужны
+        for (const key in removedConnections) {
+            const connection = removedConnections[key].element;
+            connection.remove();
+        }
+
+        console.log(`Обновлено соединений: сохранено ${Object.keys(keptConnections).length}, создано ${Object.keys(newConnections).length}, удалено ${Object.keys(removedConnections).length}`);
+
+        // Теперь обновляем только необходимые частицы
+        updateParticles(newConnections, keptConnections, removedConnections);
+    }
+
+    // Обновление только необходимых частиц (новые, удаленные)
+    function updateParticles(newConnections, keptConnections, removedConnections) {
+        // Сохраняем существующие частицы для каждого соединения
+        const existingParticlesByConnection = {};
+        for (let i = 0; i < dataParticles.children.length; i++) {
+            const particle = dataParticles.children[i];
+            const connectionKey = particle.getAttribute('data-connection');
+            if (connectionKey) {
+                if (!existingParticlesByConnection[connectionKey]) {
+                    existingParticlesByConnection[connectionKey] = [];
+                }
+                existingParticlesByConnection[connectionKey].push(particle);
+            }
+        }
+
+        // Список частиц для удаления
+        const particlesToRemove = [];
+
+        // 1. Удаляем частицы для соединений, которые больше не существуют
+        for (const key in removedConnections) {
+            if (existingParticlesByConnection[key]) {
+                existingParticlesByConnection[key].forEach(particle => {
+                    particlesToRemove.push(particle);
+
+                    // Находим и останавливаем таймлайн этой частицы
+                    const timelineIndex = particleTimelines.findIndex(
+                        tl => tl.data && tl.data.particleElement === particle
+                    );
+                    if (timelineIndex !== -1) {
+                        particleTimelines[timelineIndex].kill();
+                        particleTimelines.splice(timelineIndex, 1);
+                    }
+                });
+
+                // Удаляем запись о частицах этого соединения
+                delete existingParticlesByConnection[key];
+            }
+        }
+
+        // Анимируем исчезновение ненужных частиц
+        if (particlesToRemove.length > 0) {
+            gsap.to(particlesToRemove, {
+                opacity: 0,
+                scale: 0.5,
+                duration: 0.6,
+                ease: "power2.out",
+                stagger: 0.03,
+                onComplete: () => {
+                    // Удаляем частицы из DOM после анимации
+                    particlesToRemove.forEach(particle => {
+                        if (particle.parentNode === dataParticles) {
+                            dataParticles.removeChild(particle);
+                        }
+                    });
+                }
+            });
+        }
+
+        // 2. Создаем новые частицы только для новых соединений
+        for (const key in newConnections) {
+            const connection = newConnections[key].element;
+            const x1 = parseFloat(connection.getAttribute('x1'));
+            const y1 = parseFloat(connection.getAttribute('y1'));
+            const x2 = parseFloat(connection.getAttribute('x2'));
+            const y2 = parseFloat(connection.getAttribute('y2'));
+            const distance = newConnections[key].distance;
+
+            // Получаем индексы узлов
+            const nodeAIndex = parseInt(connection.getAttribute('data-node-a'));
+            const nodeBIndex = parseInt(connection.getAttribute('data-node-b'));
+
+            // Проверяем, что индексы узлов корректны
+            if (isNaN(nodeAIndex) || isNaN(nodeBIndex) ||
+                nodeAIndex >= nodes.length || nodeBIndex >= nodes.length) {
+                continue;
+            }
+
+            // Определяем, есть ли среди них срочные или обработанные
+            const hasUrgent = nodes[nodeAIndex].type === 'urgent' || nodes[nodeBIndex].type === 'urgent';
+            const hasProcessed = nodes[nodeAIndex].type === 'processed' || nodes[nodeBIndex].type === 'processed';
+
+            // Определяем количество частиц на этом пути (в зависимости от длины)
+            const particlesCount = Math.max(1, Math.floor(distance / 100));
+
+            // Создаем нужное количество частиц для нового соединения
+            for (let j = 0; j < particlesCount + 1; j++) {
+                // Выбираем цвет в зависимости от типов соединенных узлов
+                let colorData;
+
+                if (hasUrgent) {
+                    // Срочные частицы (красноватые)
+                    colorData = { color: '#EF4444', opacity: 0.8 };
+                } else if (hasProcessed) {
+                    // Обработанные частицы (зеленоватые)
+                    colorData = { color: '#22C55E', opacity: 0.7 };
+                } else {
+                    // Обычные частицы
+                    colorData = particleColors[Math.floor(Math.random() * particleColors.length)];
+                }
+
+                const size = config.particles.minSize + Math.random() * (config.particles.maxSize - config.particles.minSize);
+
+                // Создаем частицу (начальное положение - в начале линии)
+                const particle = createSvgElement('circle', {
+                    cx: x1,
+                    cy: y1,
+                    r: 0, // Начальный размер 0 для анимации появления
+                    fill: colorData.color,
+                    opacity: 0, // Начальная прозрачность 0 для анимации появления
+                    filter: `url(#particle-blur-${containerId})`,
+                    'data-connection': key
+                });
+
+                dataParticles.appendChild(particle);
+
+                // Анимируем появление частицы
+                gsap.to(particle, {
+                    r: size,
+                    opacity: colorData.opacity,
+                    duration: 0.6,
+                    ease: "power2.out",
+                    delay: Math.random() * 0.3
+                });
+
+                // Скорость движения (срочные быстрее)
+                const speedMultiplier = hasUrgent ? 1.5 : (hasProcessed ? 1.2 : 1);
+                const speed = (config.particles.speed.min + Math.random() * (config.particles.speed.max - config.particles.speed.min)) * speedMultiplier;
+                const duration = distance / speed;
+
+                // Задержка старта для распределения частиц по линии
+                const startDelay = (duration / particlesCount) * j;
+
+                // Создаем простую GSAP-анимацию для частицы
+                const timeline = gsap.timeline({
+                    repeat: -1,
+                    delay: startDelay % duration // Циклическая задержка
+                });
+
+                // Сохраняем ссылку на элемент частицы
+                timeline.data = { particleElement: particle };
+
+                // Анимация движения от начала к концу и обратно
                 timeline.to(particle, {
-                    cx: x1 + dx * randomStart,
-                    cy: y1 + dy * randomStart,
-                    duration: duration * randomStart,
+                    cx: x2,
+                    cy: y2,
+                    duration: duration,
+                    ease: "none"
+                });
+
+                timeline.to(particle, {
+                    cx: x1,
+                    cy: y1,
+                    duration: duration,
                     ease: "none"
                 });
 
                 particleTimelines.push(timeline);
             }
         }
+
+        // 3. Обновляем позиции для сохраненных соединений
+        for (const key in keptConnections) {
+            const connection = keptConnections[key].element;
+            const x1 = parseFloat(connection.getAttribute('x1'));
+            const y1 = parseFloat(connection.getAttribute('y1'));
+            const x2 = parseFloat(connection.getAttribute('x2'));
+            const y2 = parseFloat(connection.getAttribute('y2'));
+
+            // Получаем существующие частицы для этого соединения
+            const particles = existingParticlesByConnection[key] || [];
+
+            // Не создаем новые частицы, а просто обновляем анимацию существующих
+            particles.forEach(particle => {
+                // Находим таймлайн для этой частицы
+                const timelineIndex = particleTimelines.findIndex(
+                    tl => tl.data && tl.data.particleElement === particle
+                );
+
+                if (timelineIndex !== -1) {
+                    // Останавливаем старую анимацию
+                    particleTimelines[timelineIndex].kill();
+
+                    // Расчет нового движения
+                    const dx = x2 - x1;
+                    const dy = y2 - y1;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    // Получаем индексы узлов
+                    const nodeAIndex = parseInt(connection.getAttribute('data-node-a'));
+                    const nodeBIndex = parseInt(connection.getAttribute('data-node-b'));
+
+                    // Определяем, есть ли среди них срочные или обработанные
+                    const hasUrgent = nodes[nodeAIndex].type === 'urgent' || nodes[nodeBIndex].type === 'urgent';
+                    const hasProcessed = nodes[nodeAIndex].type === 'processed' || nodes[nodeBIndex].type === 'processed';
+
+                    // Скорость движения
+                    const speedMultiplier = hasUrgent ? 1.5 : (hasProcessed ? 1.2 : 1);
+                    const speed = (config.particles.speed.min + Math.random() * (config.particles.speed.max - config.particles.speed.min)) * speedMultiplier;
+                    const duration = distance / speed;
+
+                    // Создаем новую анимацию для частицы
+                    const newTimeline = gsap.timeline({
+                        repeat: -1,
+                        delay: Math.random() * duration // Случайная задержка
+                    });
+
+                    // Сохраняем ссылку на элемент частицы
+                    newTimeline.data = { particleElement: particle };
+
+                    // Текущее положение частицы
+                    const currentX = parseFloat(particle.getAttribute('cx'));
+                    const currentY = parseFloat(particle.getAttribute('cy'));
+
+                    // Новая анимация с учетом текущего положения
+                    // Сначала завершаем текущий путь
+                    if (Math.abs(currentX - x1) < Math.abs(currentX - x2)) {
+                        // Ближе к началу - движемся к концу
+                        newTimeline.to(particle, {
+                            cx: x2,
+                            cy: y2,
+                            duration: duration * (Math.abs(currentX - x2) / Math.abs(x2 - x1)),
+                            ease: "none"
+                        });
+
+                        newTimeline.to(particle, {
+                            cx: x1,
+                            cy: y1,
+                            duration: duration,
+                            ease: "none"
+                        });
+                    } else {
+                        // Ближе к концу - движемся к началу
+                        newTimeline.to(particle, {
+                            cx: x1,
+                            cy: y1,
+                            duration: duration * (Math.abs(currentX - x1) / Math.abs(x2 - x1)),
+                            ease: "none"
+                        });
+
+                        newTimeline.to(particle, {
+                            cx: x2,
+                            cy: y2,
+                            duration: duration,
+                            ease: "none"
+                        });
+                    }
+
+                    // Добавляем полный цикл после первоначального движения
+                    newTimeline.to(particle, {
+                        cx: x1,
+                        cy: y1,
+                        duration: duration,
+                        ease: "none"
+                    });
+
+                    // Заменяем таймлайн
+                    particleTimelines[timelineIndex] = newTimeline;
+                }
+            });
+        }
+
+        console.log(`Обновлено частиц: ${dataParticles.children.length}`);
     }
 
-    // Обработчик изменения темы
+    // Создание движущихся частиц (первоначальное)
+    function createParticles() {
+        // Очищаем все предыдущие частицы и таймлайны
+        while (dataParticles.firstChild) {
+            dataParticles.removeChild(dataParticles.firstChild);
+        }
+
+        // Останавливаем все таймлайны
+        particleTimelines.forEach(timeline => timeline.kill());
+        particleTimelines.length = 0;
+
+        // Если нет соединений, выходим
+        if (connections.children.length === 0) {
+            console.log("Соединения отсутствуют - частицы не созданы");
+            return;
+        }
+
+        console.log(`Обнаружено ${connections.children.length} соединений - создаем частицы`);
+
+        // Создадим новые соединения для передачи в updateParticles
+        const newConnections = {};
+
+        // Для каждого соединения подготовим данные
+        for (let i = 0; i < connections.children.length; i++) {
+            const connection = connections.children[i];
+            const nodeAIndex = parseInt(connection.getAttribute('data-node-a'));
+            const nodeBIndex = parseInt(connection.getAttribute('data-node-b'));
+            const key = `${nodeAIndex}-${nodeBIndex}`;
+
+            // Устанавливаем ключ соединения для последующего отслеживания
+            connection.setAttribute('data-connection-key', key);
+
+            const x1 = parseFloat(connection.getAttribute('x1'));
+            const y1 = parseFloat(connection.getAttribute('y1'));
+            const x2 = parseFloat(connection.getAttribute('x2'));
+            const y2 = parseFloat(connection.getAttribute('y2'));
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            newConnections[key] = {
+                element: connection,
+                distance: distance
+            };
+        }
+
+        // Вызываем обновление частиц (все будут новыми)
+        updateParticles(newConnections, {}, {});
+    }
+
+    // Обновление соединений (вызывается при изменении набора узлов)
+    function updateConnections() {
+        // Для большинства операций, кроме добавления нового узла, используем существующую логику
+        createConnections();
+    }
+
+    // Планирование добавления нового узла
+    function scheduleNodeAddition() {
+        const delay = config.nodes.dynamics.addInterval.min + Math.random() * (config.nodes.dynamics.addInterval.max - config.nodes.dynamics.addInterval.min);
+        addNodeTimer = setTimeout(() => {
+            createNode(true); // создаем новый узел с анимацией
+            scheduleNodeAddition(); // планируем следующее добавление
+        }, delay);
+    }
+
+    // Планирование удаления узла
+    function scheduleNodeRemoval() {
+        const delay = config.nodes.dynamics.removeInterval.min + Math.random() * (config.nodes.dynamics.removeInterval.max - config.nodes.dynamics.removeInterval.min);
+        removeNodeTimer = setTimeout(() => {
+            removeRandomNode();
+            scheduleNodeRemoval(); // планируем следующее удаление
+        }, delay);
+    }
+
+    // Планирование обработки узла
+    function scheduleNodeProcessing() {
+        const delay = config.nodes.dynamics.processInterval.min + Math.random() * (config.nodes.dynamics.processInterval.max - config.nodes.dynamics.processInterval.min);
+        processNodeTimer = setTimeout(() => {
+            processRandomNode();
+            scheduleNodeProcessing(); // планируем следующую обработку
+        }, delay);
+    }
+
+    // Обновление темы цветов при изменении theme mode
     function updateTheme() {
-        const newIsDarkMode = document.documentElement.classList.contains('dark');
-        const newNodeColors = newIsDarkMode ? config.nodes.colors.dark : config.nodes.colors.light;
-        const newParticleColors = newIsDarkMode ? config.particles.colors.dark : config.particles.colors.light;
+        const newDarkMode = document.documentElement.classList.contains('dark');
 
-        // Обновляем цвет сетки
-        const gridColor = newIsDarkMode ?
-            `rgba(255, 255, 255, ${config.grid.opacity})` :
-            `rgba(0, 0, 0, ${config.grid.opacity})`;
+        if (isDarkMode !== newDarkMode) {
+            console.log(`Изменение темы: ${newDarkMode ? 'тёмная' : 'светлая'}`);
+            // Обновляем состояние
+            isDarkMode = newDarkMode;
 
-        gridLines.querySelectorAll('line').forEach(line => {
-            line.setAttribute('stroke', gridColor);
-        });
+            // Обновляем цвета в зависимости от темы
+            nodeColors = isDarkMode ? config.nodes.colors.dark : config.nodes.colors.light;
+            particleColors = isDarkMode ? config.particles.colors.dark : config.particles.colors.light;
 
-        // Обновляем цвета узлов
-        nodes.forEach(node => {
-            const newColorData = newNodeColors[Math.floor(Math.random() * newNodeColors.length)];
-            gsap.to(node.element, {
-                fill: newColorData.color,
-                opacity: newColorData.opacity,
-                duration: 1.5,
-                ease: "power2.inOut"
-            });
-        });
+            // Обновляем прозрачность соединений
+            config.connections.opacity = isDarkMode ? 0.25 : 0.2;
 
-        // Обновляем цвета частиц
-        Array.from(dataParticles.children).forEach(particle => {
-            const newColorData = newParticleColors[Math.floor(Math.random() * newParticleColors.length)];
-            gsap.to(particle, {
-                fill: newColorData.color,
-                opacity: newColorData.opacity,
-                duration: 1.5,
-                ease: "power2.inOut"
-            });
-        });
+            // Обновляем внешний вид сетки
+            for (let i = 0; i < gridLines.children.length; i++) {
+                const line = gridLines.children[i];
+                line.setAttribute('stroke', isDarkMode ? 'white' : 'black');
+                line.setAttribute('opacity', config.grid.opacity);
+            }
+
+            // Обновляем соединения
+            for (let i = 0; i < connections.children.length; i++) {
+                const connection = connections.children[i];
+                // Прозрачность линии также обратно пропорциональна расстоянию
+                const x1 = parseFloat(connection.getAttribute('x1'));
+                const y1 = parseFloat(connection.getAttribute('y1'));
+                const x2 = parseFloat(connection.getAttribute('x2'));
+                const y2 = parseFloat(connection.getAttribute('y2'));
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const lineOpacity = config.connections.opacity * (1 - distance / config.connections.maxDistance);
+                connection.setAttribute('opacity', lineOpacity);
+            }
+
+            console.log('Тема обновлена, перезагружаем частицы');
+            // Пересоздаем частицы с новыми цветами
+            createParticles();
+        }
     }
 
     // Инициализация анимации
     function initAnimation() {
         createGrid();
-        createNodes();
-        createConnections();
-        createParticles();
+        createNodes(config.nodes.initialCount);
+        createConnections(); // Теперь createConnections вызывает updateParticles
+
+        // Дополнительный явный вызов создания частиц уже не нужен
+        // Но оставим проверку для подстраховки
+        setTimeout(() => {
+            if (dataParticles.children.length === 0) {
+                console.log('Экстренное создание частиц - они не были созданы');
+                createParticles();
+            }
+        }, 500);
+
+        // Запускаем динамику узлов
+        scheduleNodeAddition();
+        scheduleNodeRemoval();
+        scheduleNodeProcessing();
+
+        // Запускаем волны активности
+        scheduleNextWave();
 
         // Отслеживаем изменение темы
         const observer = new MutationObserver((mutations) => {
@@ -383,6 +1288,37 @@ document.addEventListener('DOMContentLoaded', () => {
         observer.observe(document.documentElement, { attributes: true });
     }
 
+    // Очистка при уничтожении компонента
+    function cleanupAnimation() {
+        // Очищаем все таймеры
+        clearTimeout(addNodeTimer);
+        clearTimeout(removeNodeTimer);
+        clearTimeout(processNodeTimer);
+        clearTimeout(waveTimer);
+
+        // Останавливаем все анимации
+        gsap.killTweensOf(dataNodes.children);
+        gsap.killTweensOf(connections.children);
+        gsap.killTweensOf(dataParticles.children);
+        gsap.killTweensOf(waveEffects.children);
+        gsap.killTweensOf(pulseEffects.children);
+
+        // Останавливаем все таймлайны
+        nodes.forEach(node => {
+            if (node.timeline) {
+                node.timeline.kill();
+            }
+        });
+
+        particleTimelines.forEach(timeline => {
+            timeline.kill();
+        });
+
+        waveTimelines.forEach(timeline => {
+            timeline.kill();
+        });
+    }
+
     // Запускаем инициализацию
     initAnimation();
 
@@ -391,5 +1327,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // При изменении размера окна можно пересоздать анимацию или настроить масштабирование
         // Для SVG с viewBox это происходит автоматически
     });
+
+    // Очистка ресурсов при уничтожении компонента
+    return () => {
+        cleanupAnimation();
+    };
 });
 </script>
