@@ -15,7 +15,7 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <!-- Тариф "Базовый" -->
             <div class="bg-white dark:bg-secondary-800 rounded-2xl shadow-lg overflow-hidden border border-secondary-100 dark:border-secondary-700 transition-all duration-300 hover:shadow-xl hover:border-primary-300 dark:hover:border-primary-600" data-aos="fade-up">
-                <div class="p-8">
+                <div class="p-8 flex flex-col h-full">
                     <h3 class="text-2xl font-bold font-heading text-secondary-900 dark:text-white mb-4">Базовый</h3>
                     <p class="text-secondary-600 dark:text-secondary-300 mb-6">
                         Идеально для стартапов и малого бизнеса
@@ -52,9 +52,11 @@
                         </li>
                     </ul>
 
-                    <a href="#contact" class="block w-full text-center px-6 py-3 border border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400 font-medium rounded-md hover:bg-primary-50 dark:hover:bg-primary-900/20 transition duration-150">
-                        Начать бесплатный период
-                    </a>
+                    <div class="mt-auto">
+                        <a href="#contact" class="block w-full text-center px-6 py-3 border border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400 font-medium rounded-md hover:bg-primary-50 dark:hover:bg-primary-900/20 transition duration-150">
+                            Начать бесплатный период
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -66,7 +68,7 @@
                     </div>
                 </div>
 
-                <div class="p-8">
+                <div class="p-8 flex flex-col h-full">
                     <h3 class="text-2xl font-bold font-heading text-white mb-4">Бизнес</h3>
                     <p class="text-primary-100 mb-6">
                         Оптимально для растущих компаний
@@ -109,15 +111,17 @@
                         </li>
                     </ul>
 
-                    <a href="#contact" class="block w-full text-center px-6 py-3 border border-white text-white font-medium rounded-md hover:bg-white hover:text-primary-600 transition duration-150">
-                        Начать бесплатный период
-                    </a>
+                    <div class="mt-auto">
+                        <a href="#contact" class="block w-full text-center px-6 py-3 border border-white text-white font-medium rounded-md hover:bg-white hover:text-primary-600 transition duration-150">
+                            Начать бесплатный период
+                        </a>
+                    </div>
                 </div>
             </div>
 
             <!-- Тариф "Корпоративный" -->
             <div class="bg-white dark:bg-secondary-800 rounded-2xl shadow-lg overflow-hidden border border-secondary-100 dark:border-secondary-700 transition-all duration-300 hover:shadow-xl hover:border-primary-300 dark:hover:border-primary-600" data-aos="fade-up" data-aos-delay="200">
-                <div class="p-8">
+                <div class="p-8 flex flex-col h-full">
                     <h3 class="text-2xl font-bold font-heading text-secondary-900 dark:text-white mb-4">Корпоративный</h3>
                     <p class="text-secondary-600 dark:text-secondary-300 mb-6">
                         Для крупных предприятий с высокими требованиями
@@ -160,9 +164,11 @@
                         </li>
                     </ul>
 
-                    <a href="#contact" class="block w-full text-center px-6 py-3 border border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400 font-medium rounded-md hover:bg-primary-50 dark:hover:bg-primary-900/20 transition duration-150">
-                        Связаться с отделом продаж
-                    </a>
+                    <div class="mt-auto">
+                        <a href="#contact" class="block w-full text-center px-6 py-3 border border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400 font-medium rounded-md hover:bg-primary-50 dark:hover:bg-primary-900/20 transition duration-150">
+                            Связаться с отделом продаж
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

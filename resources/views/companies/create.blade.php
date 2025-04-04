@@ -380,7 +380,7 @@
     </div>
 
     <!-- Форма в красивом контейнере -->
-    <div class="max-w-md w-full form-container p-6 md:p-8 relative" x-data="onboardingApp()">
+    <div class="max-w-xl w-full form-container p-6 md:p-8 relative" x-data="onboardingApp()">
         <!-- Главный переключатель: создать или присоединиться -->
         <div class="tab-selector" :class="{'join': mode === 'join'}">
             <div class="tab" :class="{'active': mode === 'create'}" @click="setMode('create')">Создать компанию</div>
@@ -436,9 +436,151 @@
             <div class="form-step" :class="getStepClass(3)" x-show="currentStep === 3">
                 <h2 class="h2-title">Расскажите о вашей компании</h2>
                 <div class="floating-label">
-                    <textarea id="company_description" x-model="company.description" rows="4" placeholder=" "></textarea>
+                    <textarea id="company_description" x-model="company.description" rows="4" placeholder=" "
+                        style="height: 152px;"></textarea>
                     <label for="company_description">Краткое описание</label>
                 </div>
+
+                <div class="flex justify-between mt-4 gap-4">
+                    <button type="button" class="btn-secondary w-1/2 py-3 rounded-md font-medium" @click="prevStep()">
+                        Назад
+                    </button>
+                    <button type="button" class="btn-primary w-1/2 py-3 rounded-md text-white font-medium" @click="nextStep()">
+                        Далее
+                    </button>
+                </div>
+            </div>
+
+            <!-- Шаг 4: Подтверждение данных компании -->
+            <div class="form-step" :class="getStepClass(4)" x-show="currentStep === 4">
+                <h2 class="h2-title">Подтверждение данных компании</h2>
+
+                <div class="mb-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                    <div class="mb-4">
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Данные компании</h3>
+                        <div class="mt-2 space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600 dark:text-gray-400">Название:</span>
+                                <span class="font-medium text-gray-900 dark:text-gray-100" x-text="company.name"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600 dark:text-gray-400">Email:</span>
+                                <span class="font-medium text-gray-900 dark:text-gray-100" x-text="company.email"></span>
+                            </div>
+                            <div class="flex justify-between" x-show="company.phone">
+                                <span class="text-gray-600 dark:text-gray-400">Телефон:</span>
+                                <span class="font-medium text-gray-900 dark:text-gray-100" x-text="company.phone"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Описание компании</h3>
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-700 p-3 rounded border border-gray-200 dark:border-gray-600" x-text="company.description || 'Описание не указано'"></p>
+                    </div>
+                </div>
+
+                <!-- Анализ с использованием AI -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">Анализ данных</h3>
+
+                    <div class="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                        <!-- Состояние до анализа -->
+                        <div x-show="!isAnalyzing && !analysisComplete" class="text-center">
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                                Нажмите кнопку ниже, чтобы выполнить детальный анализ данных вашей компании с использованием ИИ.
+                            </p>
+                            <button
+                                @click="runAnalysis()"
+                                class="btn-primary px-4 py-2 text-sm rounded-md"
+                            >
+                                Выполнить полный анализ
+                            </button>
+                        </div>
+
+                        <!-- Индикатор загрузки -->
+                        <div x-show="isAnalyzing" class="text-center py-6">
+                            <div class="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary-color"></div>
+                            <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                                Анализируем данные вашей компании...
+                            </p>
+                        </div>
+
+                        <!-- Ошибка -->
+                        <div x-show="analysisError" class="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 p-3 rounded-lg mb-4">
+                            <p x-text="analysisError"></p>
+                            <div class="text-center mt-3">
+                                <button
+                                    @click="analysisError = null; runAnalysis()"
+                                    class="btn-primary px-4 py-2 text-sm rounded-md"
+                                >
+                                    Попробовать снова
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Результаты анализа -->
+                        <div x-show="analysisComplete" x-transition class="space-y-4">
+                            <div class="flex items-center">
+                                <div
+                                    class="relative w-14 h-14 flex items-center justify-center shrink-0 rounded-full mr-3"
+                                    :class="getScoreColorClass('bg')"
+                                >
+                                    <span class="text-xl font-bold" :class="getScoreColorClass('text')">
+                                        <span x-text="analysisResult.score"></span>/10
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <h4
+                                        class="font-medium"
+                                        :class="getScoreColorClass('text')"
+                                        x-text="getScoreText()"
+                                    ></h4>
+                                    <p
+                                        class="text-sm text-gray-600 dark:text-gray-400"
+                                        x-text="analysisResult.feedback"
+                                    ></p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <template x-if="analysisResult.strengths && analysisResult.strengths.length > 0">
+                                    <div class="mb-3">
+                                        <h5 class="font-medium text-sm text-gray-700 dark:text-gray-300 mb-1">Сильные стороны:</h5>
+                                        <ul class="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 ml-2">
+                                            <template x-for="(strength, index) in analysisResult.strengths" :key="index">
+                                                <li x-text="strength"></li>
+                                            </template>
+                                        </ul>
+                                    </div>
+                                </template>
+
+                                <template x-if="analysisResult.weaknesses && analysisResult.weaknesses.length > 0">
+                                    <div>
+                                        <h5 class="font-medium text-sm text-gray-700 dark:text-gray-300 mb-1">Что можно улучшить:</h5>
+                                        <ul class="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 ml-2">
+                                            <template x-for="(weakness, index) in analysisResult.weaknesses" :key="index">
+                                                <li x-text="weakness"></li>
+                                            </template>
+                                        </ul>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- Кнопка для повторного запуска анализа -->
+                            <div class="text-center mt-4">
+                                <button
+                                    @click="runAnalysis()"
+                                    class="btn-secondary px-4 py-2 text-sm rounded-md"
+                                >
+                                    Повторить анализ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex justify-between mt-4 gap-4">
                     <button type="button" class="btn-secondary w-1/2 py-3 rounded-md font-medium" @click="prevStep()">
                         Назад
@@ -554,6 +696,22 @@
             },
             invitationCode: '',
 
+            // Свойства для анализа компании
+            isAnalyzing: false,
+            analysisComplete: false,
+            analysisError: null,
+            analysisResult: {
+                score: 0,
+                feedback: '',
+                strengths: [],
+                weaknesses: []
+            },
+
+            // Инициализация
+            init() {
+                // Инициализация компонента
+            },
+
             // Переключение режима
             setMode(newMode) {
                 // Анимация переключения
@@ -600,6 +758,12 @@
                         return;
                     }
                     this.nextStep();
+                } else if (step === 3) {
+                    if (!this.company.description || this.company.description.length < 10) {
+                        this.shakeElement(document.getElementById('company_description'));
+                        return;
+                    }
+                    this.nextStep();
                 }
             },
 
@@ -611,7 +775,7 @@
 
             // Переход к следующему шагу
             nextStep() {
-                if (this.currentStep < 3) {
+                if (this.currentStep < 4) {
                     this.currentStep++;
                     this.animateStepTransition();
                 }
@@ -659,6 +823,129 @@
                 }, 2000);
             },
 
+            // Запустить анализ данных компании
+            runAnalysis() {
+                // Проверяем наличие данных компании
+                if (!this.company.name || !this.company.description) {
+                    alert('Для анализа необходимо указать название и описание компании');
+                    return;
+                }
+
+                console.log('Начинаем анализ компании:', {
+                    name: this.company.name,
+                    description: this.company.description?.substring(0, 50) + '...'
+                });
+
+                // Устанавливаем состояние загрузки
+                this.isAnalyzing = true;
+                this.analysisComplete = false;
+                this.analysisError = null;
+
+                // Получаем CSRF-токен
+                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                console.log('CSRF token получен:', !!token);
+
+                if (!token) {
+                    console.error('ОШИБКА: CSRF токен не найден!');
+                    this.analysisError = 'Ошибка безопасности: CSRF токен не найден';
+                    this.isAnalyzing = false;
+                    return;
+                }
+
+                const requestData = {
+                    name: this.company.name,
+                    description: this.company.description
+                };
+
+                console.log('Отправляем запрос на /api/analysis/company-full');
+                console.log('Данные запроса:', requestData);
+
+                // Выполняем запрос к API
+                fetch('/api/analysis/company-full', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': token,
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                })
+                .then(response => {
+                    console.log('Получен ответ от сервера:', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        ok: response.ok
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Ошибка сервера: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Данные анализа получены:', data);
+
+                    // Проверяем наличие ключевого поля success
+                    if (data.success === false) {
+                        console.warn('Сервер вернул ошибку:', data.message || 'Неизвестная ошибка');
+                        throw new Error(data.message || 'Сервер вернул ошибку');
+                    }
+
+                    // Сохраняем результаты анализа
+                    this.analysisResult.score = data.score || 0;
+                    this.analysisResult.feedback = data.feedback || '';
+                    this.analysisResult.strengths = Array.isArray(data.strengths) ? data.strengths : [];
+                    this.analysisResult.weaknesses = Array.isArray(data.weaknesses) ? data.weaknesses : [];
+
+                    // Обновляем состояние
+                    this.analysisComplete = true;
+                    console.log('Анализ завершен успешно', this.analysisResult);
+                })
+                .catch(error => {
+                    console.error('ОШИБКА при анализе компании:', error);
+                    // Добавляем полную информацию об ошибке
+                    console.error('Детали ошибки:', {
+                        message: error.message,
+                        stack: error.stack,
+                        name: error.name
+                    });
+
+                    this.analysisError = `Произошла ошибка при анализе данных: ${error.message}. Пожалуйста, попробуйте позже.`;
+                })
+                .finally(() => {
+                    this.isAnalyzing = false;
+                    console.log('Запрос завершен, состояние:', {
+                        isAnalyzing: this.isAnalyzing,
+                        analysisComplete: this.analysisComplete,
+                        hasError: !!this.analysisError
+                    });
+                });
+            },
+
+            // Получить класс цвета для оценки
+            getScoreColorClass(type) {
+                const score = this.analysisResult.score;
+                if (score < 4) {
+                    return type === 'bg' ? 'bg-red-100 dark:bg-red-900/50' : 'text-red-700 dark:text-red-400';
+                } else if (score >= 4 && score < 7) {
+                    return type === 'bg' ? 'bg-yellow-100 dark:bg-yellow-900/50' : 'text-yellow-700 dark:text-yellow-400';
+                } else {
+                    return type === 'bg' ? 'bg-green-100 dark:bg-green-900/50' : 'text-green-700 dark:text-green-400';
+                }
+            },
+
+            // Получить текстовое описание оценки
+            getScoreText() {
+                const score = this.analysisResult.score;
+                if (score < 4) {
+                    return 'Требуются улучшения';
+                } else if (score >= 4 && score < 7) {
+                    return 'Хорошее начало';
+                } else {
+                    return 'Отличная основа';
+                }
+            },
+
             // Отправка формы создания компании
             submitForm() {
                 document.getElementById('create-company-form').submit();
@@ -673,6 +960,19 @@
                 document.getElementById('join-company-form').submit();
             }
         }
+    }
+
+    // Функция debounce для задержки вызова метода
+    function debounce(func, wait) {
+        let timeout;
+        return function() {
+            const context = this;
+            const args = arguments;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                func.apply(context, args);
+            }, wait);
+        };
     }
 
     // Инициализируем Alpine.js вручную, если он еще не инициализирован
@@ -697,6 +997,38 @@
             script.src = 'https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js';
             document.head.appendChild(script);
         }
+
+        // Функция debounce для задержки обработки событий
+        window.debounce = function(func, wait) {
+            let timeout;
+            return function() {
+                const context = this;
+                const args = arguments;
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    func.apply(context, args);
+                }, wait);
+            };
+        };
+
+        // Слушаем событие debounce от Livewire компонента
+        window.addEventListener('debounce', function(event) {
+            if (event.detail && event.detail.method) {
+                const method = event.detail.method;
+                const params = event.detail.params || [];
+                const time = event.detail.time || 500;
+
+                // Вызываем Livewire метод с задержкой
+                clearTimeout(window.debounceTimer);
+                window.debounceTimer = setTimeout(() => {
+                    const component = event.target.closest('[wire\\:id]');
+                    if (component && component.closest('[wire\\:id]')) {
+                        Livewire.find(component.closest('[wire\\:id]').getAttribute('wire:id'))
+                            .call(method, ...params);
+                    }
+                }, time);
+            }
+        });
     });
 </script>
 @endpush

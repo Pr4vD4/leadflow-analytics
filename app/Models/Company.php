@@ -21,6 +21,8 @@ class Company extends Model
         'email',
         'phone',
         'description',
+        'description_quality_score',
+        'ai_analysis',
         'telegram_chat_id',
         'is_active',
     ];
@@ -32,6 +34,8 @@ class Company extends Model
      */
     protected $casts = [
         'is_active' => 'boolean',
+        'description_quality_score' => 'integer',
+        'ai_analysis' => 'json',
     ];
 
     /**
