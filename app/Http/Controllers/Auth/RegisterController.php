@@ -47,7 +47,7 @@ class RegisterController extends Controller
             // Авторизуем пользователя
             Auth::login($user);
 
-            return redirect('/dashboard');
+            return redirect()->route('companies.create');
         } catch (\Exception $e) {
             return back()->withInput()->withErrors([
                 'error' => 'Произошла ошибка при регистрации. Пожалуйста, попробуйте еще раз.'

@@ -44,7 +44,7 @@
                 @if (Route::has('login'))
                     <div class="ml-4 flex items-center">
                         @auth
-                            <a href="{{ url('/dashboard') }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none">
+                            <a href="{{ route('crm.dashboard') }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none">
                                 Личный кабинет
                             </a>
                         @else

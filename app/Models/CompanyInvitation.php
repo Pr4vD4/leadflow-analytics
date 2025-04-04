@@ -23,6 +23,7 @@ class CompanyInvitation extends Model
         'is_active',
         'activated_at',
         'activated_by_user_id',
+        'metadata',
     ];
 
     /**
@@ -33,6 +34,7 @@ class CompanyInvitation extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'activated_at' => 'datetime',
+        'metadata' => 'array',
     ];
 
     /**

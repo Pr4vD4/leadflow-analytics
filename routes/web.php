@@ -5,6 +5,9 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\Crm\DashboardController;
+use App\Http\Controllers\Crm\LeadController;
+use App\Http\Controllers\Crm\SettingsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -49,15 +52,44 @@ Route::middleware(['auth'])->group(function () {
 
     // Маршруты, требующие наличия компании у пользователя
     Route::middleware(['company'])->group(function () {
-        // Дашборд
-        Route::get('/dashboard', function () {
-            return view('home.dashboard');
-        })->name('dashboard');
 
         // Управление приглашениями в компанию
         Route::prefix('companies/invitations')->name('companies.invitations')->group(function () {
             Route::get('/', [CompanyController::class, 'showInvitations'])->name('');
             Route::post('/', [CompanyController::class, 'createInvitation'])->name('.create');
+        });
+
+        // CRM система
+        Route::prefix('crm')->name('crm.')->group(function () {
+            // Дашборд CRM
+            Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+            // Заявки
+            Route::prefix('leads')->name('leads.')->group(function () {
+                Route::get('/', [LeadController::class, 'index'])->name('index');
+                Route::get('/{id}', [LeadController::class, 'show'])->name('show');
+                Route::post('/{id}/update-status', [LeadController::class, 'updateStatus'])->name('update-status');
+            });
+
+            // Настройки компании
+            Route::prefix('settings')->name('settings.')->group(function () {
+                Route::get('/general', [SettingsController::class, 'general'])->name('general');
+                Route::post('/general', [SettingsController::class, 'updateGeneral'])->name('update-general');
+
+                Route::get('/api', [SettingsController::class, 'api'])->name('api');
+                Route::post('/api/regenerate', [SettingsController::class, 'regenerateApiKey'])->name('regenerate-api-key');
+
+                Route::get('/integrations', [SettingsController::class, 'integrations'])->name('integrations');
+                Route::post('/integrations', [SettingsController::class, 'updateIntegrations'])->name('update-integrations');
+
+                Route::get('/users', [SettingsController::class, 'users'])->name('users');
+                Route::post('/users/{user}/role', [SettingsController::class, 'updateUserRole'])->name('update-user-role');
+                Route::post('/users/invite', [SettingsController::class, 'inviteUser'])->name('invite-user');
+                Route::post('/invitations/create', [SettingsController::class, 'createInvitation'])->name('create-invitation');
+                Route::put('/invitations/{invitation}/deactivate', [SettingsController::class, 'deactivateInvitation'])->name('deactivate-invitation');
+            });
+
+            // Здесь будут другие маршруты CRM (аналитика и т.д.)
         });
 
         // Здесь можно добавить другие маршруты, требующие наличия компании
