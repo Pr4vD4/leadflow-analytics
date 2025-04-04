@@ -104,7 +104,12 @@ class CompanyController extends Controller
             // Деактивируем код приглашения
             $invitation->deactivate($user);
 
-            return redirect('/dashboard')->with('success', 'Вы успешно присоединились к компании!');
+            // Назначаем пользователю роль из метаданных приглашения
+            if ($invitation->metadata && isset($invitation->metadata['role'])) {
+                $user->assignRole($invitation->metadata['role']);
+            }
+
+            return redirect()->route('crm.dashboard')->with('success', 'Вы успешно присоединились к компании!');
         } catch (\Exception $e) {
             return back()->withInput()->withErrors([
                 'error' => 'Произошла ошибка при присоединении к компании. Пожалуйста, попробуйте еще раз.'
