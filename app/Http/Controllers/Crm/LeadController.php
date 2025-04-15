@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Lead;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Spatie\QueryBuilder\AllowedFilter;
+use Spatie\QueryBuilder\QueryBuilder;
 
 class LeadController extends Controller
 {
@@ -27,30 +29,24 @@ class LeadController extends Controller
     {
         $companyId = Auth::user()->company_id;
 
-        // Получаем базовый запрос заявок для текущей компании
-        $leadsQuery = Lead::forCompany($companyId);
-
-        // Применяем фильтры, если они указаны
-        if ($request->has('status')) {
-            $leadsQuery->where('status', $request->status);
-        }
-
-        if ($request->has('source')) {
-            $leadsQuery->where('source', $request->source);
-        }
-
-        if ($request->has('search')) {
-            $search = $request->search;
-            $leadsQuery->where(function($query) use ($search) {
-                $query->where('name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%")
-                      ->orWhere('phone', 'like', "%{$search}%")
-                      ->orWhere('message', 'like', "%{$search}%");
-            });
-        }
-
-        // Получаем отсортированные заявки с пагинацией
-        $leads = $leadsQuery->orderBy('created_at', 'desc')->paginate(10);
+        // Используем QueryBuilder от Spatie для более удобной фильтрации
+        $leads = QueryBuilder::for(Lead::class)
+            ->where('company_id', $companyId) // Применяем фильтр по компании
+            ->allowedFilters([
+                'status',
+                'source',
+                AllowedFilter::callback('search', function ($query, $value) {
+                    $query->where(function($query) use ($value) {
+                        $query->where('name', 'like', "%{$value}%")
+                            ->orWhere('email', 'like', "%{$value}%")
+                            ->orWhere('phone', 'like', "%{$value}%")
+                            ->orWhere('message', 'like', "%{$value}%");
+                    });
+                }),
+            ])
+            ->defaultSort('-created_at')
+            ->paginate(10)
+            ->withQueryString();
 
         // Получаем уникальные источники для фильтра
         $sources = Lead::forCompany($companyId)

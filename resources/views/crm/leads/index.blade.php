@@ -16,9 +16,9 @@
                 <div class="flex flex-wrap gap-4">
                     <!-- Поиск -->
                     <div class="flex-grow min-w-[200px]">
-                        <label for="search" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Поиск</label>
+                        <label for="filter[search]" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Поиск</label>
                         <div class="relative rounded-md shadow-sm">
-                            <input type="text" name="search" id="search" value="{{ request('search') }}" class="block w-full rounded-md border-gray-300 dark:border-secondary-700 dark:bg-secondary-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="Имя, email, телефон или сообщение...">
+                            <input type="text" name="filter[search]" id="filter[search]" value="{{ request('filter.search') }}" class="block w-full rounded-md border-gray-300 dark:border-secondary-700 dark:bg-secondary-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm" placeholder="Имя, email, телефон или сообщение...">
                             <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                 <i class="fas fa-search text-gray-400"></i>
                             </div>
@@ -27,23 +27,23 @@
 
                     <!-- Статус -->
                     <div class="w-full sm:w-auto">
-                        <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Статус</label>
-                        <select id="status" name="status" class="block w-full rounded-md border-gray-300 dark:border-secondary-700 dark:bg-secondary-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
+                        <label for="filter[status]" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Статус</label>
+                        <select id="filter[status]" name="filter[status]" class="block w-full rounded-md border-gray-300 dark:border-secondary-700 dark:bg-secondary-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
                             <option value="">Все статусы</option>
-                            <option value="new" {{ request('status') == 'new' ? 'selected' : '' }}>Новая</option>
-                            <option value="in_progress" {{ request('status') == 'in_progress' ? 'selected' : '' }}>В работе</option>
-                            <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Завершена</option>
-                            <option value="archived" {{ request('status') == 'archived' ? 'selected' : '' }}>В архиве</option>
+                            <option value="new" {{ request('filter.status') == 'new' ? 'selected' : '' }}>Новая</option>
+                            <option value="in_progress" {{ request('filter.status') == 'in_progress' ? 'selected' : '' }}>В работе</option>
+                            <option value="completed" {{ request('filter.status') == 'completed' ? 'selected' : '' }}>Завершена</option>
+                            <option value="archived" {{ request('filter.status') == 'archived' ? 'selected' : '' }}>В архиве</option>
                         </select>
                     </div>
 
                     <!-- Источник -->
                     <div class="w-full sm:w-auto">
-                        <label for="source" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Источник</label>
-                        <select id="source" name="source" class="block w-full rounded-md border-gray-300 dark:border-secondary-700 dark:bg-secondary-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
+                        <label for="filter[source]" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Источник</label>
+                        <select id="filter[source]" name="filter[source]" class="block w-full rounded-md border-gray-300 dark:border-secondary-700 dark:bg-secondary-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
                             <option value="">Все источники</option>
                             @foreach($sources as $source)
-                                <option value="{{ $source }}" {{ request('source') == $source ? 'selected' : '' }}>{{ $source }}</option>
+                                <option value="{{ $source }}" {{ request('filter.source') == $source ? 'selected' : '' }}>{{ $source }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -56,7 +56,7 @@
                     </button>
 
                     <!-- Кнопка сброса фильтров -->
-                    @if(request('search') || request('status') || request('source'))
+                    @if(request('filter'))
                         <a href="{{ route('crm.leads.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-secondary-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-secondary-700 hover:bg-gray-50 dark:hover:bg-secondary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-secondary-800">
                             <i class="fas fa-times mr-2"></i>
                             Сбросить фильтры
@@ -152,7 +152,7 @@
                         <p class="text-gray-500 dark:text-gray-400 text-lg">Заявки не найдены</p>
                         <p class="text-gray-500 dark:text-gray-400 mb-4">Попробуйте изменить параметры фильтрации или добавить новые заявки</p>
 
-                        @if(request('search') || request('status') || request('source'))
+                        @if(request('filter'))
                             <a href="{{ route('crm.leads.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-secondary-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-secondary-700 hover:bg-gray-50 dark:hover:bg-secondary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-secondary-800">
                                 <i class="fas fa-times mr-2"></i>
                                 Сбросить фильтры

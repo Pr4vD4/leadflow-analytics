@@ -33,5 +33,10 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UserSeeder::class,
         ]);
+
+        // Создаем тестовые лиды
+        $this->call([
+            LeadSeeder::class,
+        ]);
     }
 }
