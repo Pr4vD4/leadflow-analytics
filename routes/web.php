@@ -63,6 +63,7 @@ Route::middleware(['auth'])->group(function () {
         Route::prefix('crm')->name('crm.')->group(function () {
             // Дашборд CRM
             Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+            Route::get('/dashboard/export-csv', [DashboardController::class, 'exportCsv'])->name('dashboard.export-csv');
 
             // Заявки
             Route::prefix('leads')->name('leads.')->group(function () {

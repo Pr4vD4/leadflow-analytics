@@ -30,6 +30,11 @@ class Lead extends Model
         'summary',
         'generated_response',
         'relevance_score',
+        'first_response_at',
+        'resolved_at',
+        'response_time_minutes',
+        'resolution_time_minutes',
+        'status_changed_at',
     ];
 
     /**
@@ -40,6 +45,9 @@ class Lead extends Model
     protected $casts = [
         'custom_fields' => 'array',
         'relevance_score' => 'integer',
+        'first_response_at' => 'datetime',
+        'resolved_at' => 'datetime',
+        'status_changed_at' => 'datetime',
     ];
 
     /**
@@ -92,5 +100,72 @@ class Lead extends Model
     public function files(): HasMany
     {
         return $this->hasMany(LeadFile::class);
+    }
+
+    /**
+     * Get the events for the lead.
+     */
+    public function events(): HasMany
+    {
+        return $this->hasMany(LeadEvent::class);
+    }
+
+    /**
+     * Record a new event for this lead.
+     *
+     * @param  string  $eventType
+     * @param  string|null  $previousValue
+     * @param  string|null  $newValue
+     * @param  string|null  $description
+     * @param  array|null  $metadata
+     * @return \App\Models\LeadEvent
+     */
+    public function recordEvent(string $eventType, ?string $previousValue = null, ?string $newValue = null, ?string $description = null, ?array $metadata = null): LeadEvent
+    {
+        return $this->events()->create([
+            'company_id' => $this->company_id,
+            'user_id' => auth()->id(),
+            'event_type' => $eventType,
+            'previous_value' => $previousValue,
+            'new_value' => $newValue,
+            'description' => $description,
+            'metadata' => $metadata,
+        ]);
+    }
+
+    /**
+     * Calculates or returns the response time in minutes.
+     *
+     * @return int|null
+     */
+    public function getResponseTimeMinutesAttribute($value)
+    {
+        if ($value) {
+            return $value;
+        }
+
+        if ($this->first_response_at && $this->created_at) {
+            return $this->first_response_at->diffInMinutes($this->created_at);
+        }
+
+        return null;
+    }
+
+    /**
+     * Calculates or returns the resolution time in minutes.
+     *
+     * @return int|null
+     */
+    public function getResolutionTimeMinutesAttribute($value)
+    {
+        if ($value) {
+            return $value;
+        }
+
+        if ($this->resolved_at && $this->created_at) {
+            return $this->resolved_at->diffInMinutes($this->created_at);
+        }
+
+        return null;
     }
 }
