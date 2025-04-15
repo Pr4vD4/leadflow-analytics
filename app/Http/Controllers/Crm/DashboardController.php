@@ -259,8 +259,11 @@ class DashboardController extends Controller
         // Подготавливаем имя файла
         $filename = 'leads_export_' . $startDate->format('Y-m-d') . '_to_' . $endDate->format('Y-m-d') . '.csv';
 
-        // Создаем временный файл
+        // Создаем временный файл с кодировкой UTF-8 и BOM-маркером
         $handle = fopen(storage_path('app/' . $filename), 'w');
+
+        // Добавляем BOM-маркер UTF-8 в начало файла для правильного определения кодировки Excel
+        fputs($handle, "\xEF\xBB\xBF");
 
         // Заголовки CSV
         fputcsv($handle, [
@@ -276,7 +279,7 @@ class DashboardController extends Controller
             'Завершение',
             'Время ответа (мин)',
             'Время резолюции (мин)',
-        ]);
+        ], ';'); // Используем разделитель ";" для лучшей совместимости с Excel
 
         // Данные
         foreach ($leads as $lead) {
@@ -293,12 +296,19 @@ class DashboardController extends Controller
                 $lead->resolved_at ? $lead->resolved_at->format('Y-m-d H:i:s') : '-',
                 $lead->response_time_minutes ?? '-',
                 $lead->resolution_time_minutes ?? '-',
-            ]);
+            ], ';'); // Используем разделитель ";" для лучшей совместимости с Excel
         }
 
         fclose($handle);
 
-        // Возвращаем файл
-        return response()->download(storage_path('app/' . $filename))->deleteFileAfterSend();
+        // Возвращаем файл с указанием кодировки
+        return response()->download(
+            storage_path('app/' . $filename),
+            $filename,
+            [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"'
+            ]
+        )->deleteFileAfterSend();
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Lead;
+use App\Models\LeadMetric;
 
 class LeadObserver
 {
@@ -17,6 +18,9 @@ class LeadObserver
         // Устанавливаем время изменения статуса
         $lead->status_changed_at = now();
         $lead->saveQuietly(); // Сохраняем без повторного вызова обсервера
+
+        // Обновляем метрики для компании после создания заявки
+        $this->updateMetricsForCompany($lead->company_id);
     }
 
     /**
@@ -49,10 +53,14 @@ class LeadObserver
 
             // Сохраняем изменения без повторного вызова обсервера
             $lead->saveQuietly();
+
+            // Обновляем метрики при изменении статуса заявки
+            $this->updateMetricsForCompany($lead->company_id);
         }
 
         // Отслеживаем изменение других важных полей
         $trackedFields = ['name', 'email', 'phone', 'message', 'source', 'category', 'relevance_score'];
+        $shouldUpdateMetrics = false;
 
         foreach ($trackedFields as $field) {
             if ($lead->isDirty($field)) {
@@ -66,7 +74,17 @@ class LeadObserver
                     $newValue,
                     "Поле '$field' изменено"
                 );
+
+                // Если изменилась оценка релевантности или источник, нужно обновить метрики
+                if (in_array($field, ['relevance_score', 'source'])) {
+                    $shouldUpdateMetrics = true;
+                }
             }
+        }
+
+        // Обновляем метрики, если изменились важные поля
+        if ($shouldUpdateMetrics) {
+            $this->updateMetricsForCompany($lead->company_id);
         }
     }
 
@@ -77,6 +95,9 @@ class LeadObserver
     {
         // Записываем событие удаления заявки
         $lead->recordEvent('deleted', null, null, 'Заявка удалена');
+
+        // Обновляем метрики после удаления заявки
+        $this->updateMetricsForCompany($lead->company_id);
     }
 
     /**
@@ -86,6 +107,9 @@ class LeadObserver
     {
         // Записываем событие восстановления заявки
         $lead->recordEvent('restored', null, null, 'Заявка восстановлена');
+
+        // Обновляем метрики после восстановления заявки
+        $this->updateMetricsForCompany($lead->company_id);
     }
 
     /**
@@ -94,5 +118,38 @@ class LeadObserver
     public function forceDeleted(Lead $lead): void
     {
         // Ничего не делаем, так как запись полностью удалена из БД
+    }
+
+    /**
+     * Обновляет метрики для компании
+     *
+     * @param int $companyId
+     * @return void
+     */
+    private function updateMetricsForCompany(int $companyId): void
+    {
+        // Обновляем только метрики текущего дня и недели для оптимизации производительности
+        $now = now();
+        $periods = [
+            'daily' => [
+                'start' => $now->copy()->startOfDay(),
+                'end' => $now->copy()->endOfDay(),
+            ],
+            'weekly' => [
+                'start' => $now->copy()->startOfWeek(),
+                'end' => $now->copy()->endOfWeek(),
+            ]
+        ];
+
+        foreach ($periods as $periodType => $period) {
+            // Обновляем общие метрики (без фильтрации по источнику)
+            LeadMetric::calculateMetrics(
+                $companyId,
+                $periodType,
+                $period['start']->toDateString(),
+                $period['end']->toDateString(),
+                null // без указания источника
+            );
+        }
     }
 }

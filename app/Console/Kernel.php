@@ -13,6 +13,12 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // $schedule->command('inspire')->hourly();
+
+        // Обновление метрик заявок каждый час
+        $schedule->command('leads:update-metrics')->hourly();
+
+        // Принудительное пересчитывание метрик один раз в день (в полночь)
+        $schedule->command('leads:update-metrics --force')->dailyAt('00:00');
     }
 
     /**

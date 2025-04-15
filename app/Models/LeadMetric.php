@@ -113,35 +113,37 @@ class LeadMetric extends Model
     public static function calculateMetrics($companyId, $periodType, $periodStart, $periodEnd, $source = null, $status = null)
     {
         // Базовый запрос для фильтрации заявок
-        $query = Lead::forCompany($companyId)
+        $baseQuery = Lead::forCompany($companyId)
                     ->whereBetween('created_at', [$periodStart, $periodEnd]);
 
         if ($source) {
-            $query->where('source', $source);
+            $baseQuery->where('source', $source);
         }
 
         if ($status) {
-            $query->where('status', $status);
+            $baseQuery->where('status', $status);
         }
 
-        // Рассчитываем метрики
-        $totalLeads = $query->count();
-        $newLeads = $query->where('status', 'new')->count();
-        $inProgressLeads = $query->where('status', 'in_progress')->count();
-        $completedLeads = $query->where('status', 'completed')->count();
-        $archivedLeads = $query->where('status', 'archived')->count();
+        // Рассчитываем метрики, используя отдельные запросы
+        $totalLeads = (clone $baseQuery)->count();
+
+        // Для каждого статуса используем отдельный запрос
+        $newLeads = (clone $baseQuery)->where('status', 'new')->count();
+        $inProgressLeads = (clone $baseQuery)->where('status', 'in_progress')->count();
+        $completedLeads = (clone $baseQuery)->where('status', 'completed')->count();
+        $archivedLeads = (clone $baseQuery)->where('status', 'archived')->count();
 
         // Конверсия: процент завершенных заявок от общего числа
         $conversionRate = $totalLeads > 0 ? ($completedLeads / $totalLeads) * 100 : 0;
 
         // Среднее время ответа в минутах
-        $avgResponseTime = $query->whereNotNull('response_time_minutes')->avg('response_time_minutes');
+        $avgResponseTime = (clone $baseQuery)->whereNotNull('response_time_minutes')->avg('response_time_minutes');
 
         // Среднее время резолюции в минутах
-        $avgResolutionTime = $query->whereNotNull('resolution_time_minutes')->avg('resolution_time_minutes');
+        $avgResolutionTime = (clone $baseQuery)->whereNotNull('resolution_time_minutes')->avg('resolution_time_minutes');
 
         // Средний балл релевантности
-        $avgRelevanceScore = $query->whereNotNull('relevance_score')->avg('relevance_score');
+        $avgRelevanceScore = (clone $baseQuery)->whereNotNull('relevance_score')->avg('relevance_score');
 
         // Получаем распределение по источникам
         $sourceDistribution = null;
@@ -178,5 +180,80 @@ class LeadMetric extends Model
                 'calculated_at' => now(),
             ]
         );
+    }
+
+    /**
+     * Обновить все метрики для указанной компании.
+     * Рассчитывает метрики для разных временных периодов (день, неделя, месяц, год).
+     *
+     * @param  int  $companyId
+     * @param  bool  $forceUpdate  Принудительное обновление, даже если метрики недавно рассчитывались
+     * @return array Массив с созданными или обновленными метриками
+     */
+    public static function updateCompanyMetrics(int $companyId, bool $forceUpdate = false): array
+    {
+        $updatedMetrics = [];
+        $now = now();
+
+        // Определяем периоды для расчета
+        $periods = [
+            'daily' => [
+                'start' => $now->copy()->startOfDay(),
+                'end' => $now->copy()->endOfDay(),
+            ],
+            'weekly' => [
+                'start' => $now->copy()->startOfWeek(),
+                'end' => $now->copy()->endOfWeek(),
+            ],
+            'monthly' => [
+                'start' => $now->copy()->startOfMonth(),
+                'end' => $now->copy()->endOfMonth(),
+            ],
+            'yearly' => [
+                'start' => $now->copy()->startOfYear(),
+                'end' => $now->copy()->endOfYear(),
+            ],
+        ];
+
+        // Получаем уникальные источники для компании
+        $sources = Lead::forCompany($companyId)
+            ->select('source')
+            ->distinct()
+            ->pluck('source')
+            ->toArray();
+
+        // Добавляем общие метрики (без фильтра по источнику)
+        $sources[] = null;
+
+        // Для каждого периода и источника обновляем метрики
+        foreach ($periods as $periodType => $period) {
+            foreach ($sources as $source) {
+                // Проверяем, есть ли недавно обновленные метрики, если не требуется принудительное обновление
+                if (!$forceUpdate) {
+                    $existingMetric = self::forCompany($companyId)
+                        ->forPeriod($periodType, $period['start']->toDateString(), $source)
+                        ->where('calculated_at', '>', $now->copy()->subHours(1))
+                        ->first();
+
+                    if ($existingMetric) {
+                        $updatedMetrics[] = $existingMetric;
+                        continue;
+                    }
+                }
+
+                // Рассчитываем новые метрики
+                $metric = self::calculateMetrics(
+                    $companyId,
+                    $periodType,
+                    $period['start']->toDateString(),
+                    $period['end']->toDateString(),
+                    $source
+                );
+
+                $updatedMetrics[] = $metric;
+            }
+        }
+
+        return $updatedMetrics;
     }
 }

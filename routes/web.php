@@ -68,6 +68,7 @@ Route::middleware(['auth'])->group(function () {
             // Заявки
             Route::prefix('leads')->name('leads.')->group(function () {
                 Route::get('/', [LeadController::class, 'index'])->name('index');
+                Route::get('/export-csv', [LeadController::class, 'exportCsv'])->name('export-csv');
                 Route::get('/{id}', [LeadController::class, 'show'])->name('show');
                 Route::post('/{id}/update-status', [LeadController::class, 'updateStatus'])->name('update-status');
             });
