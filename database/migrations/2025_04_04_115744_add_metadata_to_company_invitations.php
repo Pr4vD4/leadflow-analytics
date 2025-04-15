@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('company_invitations', function (Blueprint $table) {
-            $table->json('metadata')->nullable()->after('activated_by_user_id');
+            $table->json('metadata')->nullable()->after('activated_by_user_id')
+                  ->comment('Дополнительные метаданные приглашения в JSON формате');
         });
     }
 

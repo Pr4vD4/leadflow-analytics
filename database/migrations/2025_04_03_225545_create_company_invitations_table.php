@@ -13,13 +13,19 @@ return new class extends Migration
     {
         Schema::create('company_invitations', function (Blueprint $table) {
             $table->id();
-            $table->string('code', 32)->unique();
-            $table->foreignId('company_id')->constrained()->onDelete('cascade');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->boolean('is_active')->default(true);
-            $table->timestamp('activated_at')->nullable();
-            $table->foreignId('activated_by_user_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->string('code', 32)->unique()->comment('Уникальный код приглашения');
+            $table->foreignId('company_id')->comment('ID компании')->constrained()->onDelete('cascade');
+            $table->foreignId('user_id')->comment('ID пользователя-создателя')->constrained()->onDelete('cascade');
+            $table->boolean('is_active')->default(true)->comment('Флаг активности приглашения');
+            $table->timestamp('activated_at')->nullable()->comment('Время активации приглашения');
+            $table->foreignId('activated_by_user_id')->nullable()->comment('ID пользователя, активировавшего приглашение')->constrained('users')->onDelete('set null');
             $table->timestamps();
+
+            // Добавляем индексы для ускорения поиска
+            $table->index('company_id');
+            $table->index('user_id');
+            $table->index('is_active');
+            $table->index('activated_at');
         });
     }
 

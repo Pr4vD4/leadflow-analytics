@@ -13,12 +13,15 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->rememberToken();
+            $table->string('name')->comment('Имя пользователя');
+            $table->string('email')->unique()->comment('Email пользователя для входа');
+            $table->timestamp('email_verified_at')->nullable()->comment('Время подтверждения email');
+            $table->string('password')->comment('Хэшированный пароль');
+            $table->rememberToken()->comment('Токен запоминания сессии');
             $table->timestamps();
+
+            // Добавляем индекс для ускорения поиска по имени
+            $table->index('name');
         });
     }
 

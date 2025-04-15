@@ -13,9 +13,11 @@ return new class extends Migration
     {
         Schema::table('companies', function (Blueprint $table) {
             $table->integer('description_quality_score')->nullable()->after('description')
-                ->comment('Оценка качества описания компании (1-10)');
+                ->comment('Оценка качества описания компании (1-10)')
+                ->check('description_quality_score BETWEEN 1 AND 10');
             $table->json('ai_analysis')->nullable()->after('description_quality_score')
                 ->comment('Результаты анализа описания компании AI');
+            $table->index('description_quality_score');
         });
     }
 
@@ -25,9 +27,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('companies', function (Blueprint $table) {
+            $table->dropIndex(['description_quality_score']);
             $table->dropColumn('description_quality_score');
             $table->dropColumn('ai_analysis');
-            //
         });
     }
 };

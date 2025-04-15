@@ -13,11 +13,16 @@ return new class extends Migration
     {
         Schema::create('lead_tag', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('lead_id')->constrained()->onDelete('cascade');
-            $table->foreignId('tag_id')->constrained()->onDelete('cascade');
+            $table->foreignId('lead_id')->comment('ID заявки')->constrained()->onDelete('cascade');
+            $table->foreignId('tag_id')->comment('ID тега')->constrained()->onDelete('cascade');
             $table->timestamps();
 
+            // Уникальный составной индекс для предотвращения дублирования связей
             $table->unique(['lead_id', 'tag_id']);
+
+            // Индексы для ускорения поиска по связям
+            $table->index('lead_id');
+            $table->index('tag_id');
         });
     }
 

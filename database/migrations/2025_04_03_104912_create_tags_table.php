@@ -13,12 +13,16 @@ return new class extends Migration
     {
         Schema::create('tags', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('company_id')->constrained()->onDelete('cascade');
-            $table->string('name');
-            $table->string('color')->default('#6366F1');
+            $table->foreignId('company_id')->comment('ID компании')->constrained()->onDelete('cascade');
+            $table->string('name')->comment('Название тега');
+            $table->string('color')->default('#6366F1')->comment('Цвет тега в HEX формате');
             $table->timestamps();
 
+            // Уникальный составной индекс для названия тега в рамках компании
             $table->unique(['company_id', 'name']);
+
+            // Индекс для ускорения поиска по имени тега
+            $table->index('name');
         });
     }
 
