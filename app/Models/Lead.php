@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Lead extends Model
 {
@@ -77,12 +78,23 @@ class Lead extends Model
      */
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        return $this->getStatusLabel($this->status);
+    }
+
+    /**
+     * Get status label for the given status value.
+     *
+     * @param string $status
+     * @return string
+     */
+    public function getStatusLabel(string $status): string
+    {
+        return match($status) {
             'new' => 'Новая',
             'in_progress' => 'В работе',
             'completed' => 'Завершена',
             'archived' => 'В архиве',
-            default => $this->status,
+            default => $status,
         };
     }
 
@@ -134,6 +146,14 @@ class Lead extends Model
     }
 
     /**
+     * Get the comments for the lead.
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(LeadComment::class);
+    }
+
+    /**
      * Calculates or returns the response time in minutes.
      *
      * @return int|null
@@ -167,5 +187,23 @@ class Lead extends Model
         }
 
         return null;
+    }
+
+    /**
+     * Get the analytics for the lead.
+     */
+    public function analytics(): HasOne
+    {
+        return $this->hasOne(LeadAnalytics::class);
+    }
+
+    /**
+     * Проверяет, есть ли у заявки аналитические данные.
+     *
+     * @return bool
+     */
+    public function hasAnalytics(): bool
+    {
+        return $this->analytics()->where('processing_status', LeadAnalytics::STATUS_COMPLETED)->exists();
     }
 }

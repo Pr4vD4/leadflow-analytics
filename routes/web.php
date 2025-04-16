@@ -8,6 +8,7 @@ use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\Crm\DashboardController;
 use App\Http\Controllers\Crm\LeadController;
 use App\Http\Controllers\Crm\SettingsController;
+use App\Http\Controllers\Crm\TagController;
 
 /*
 |--------------------------------------------------------------------------
@@ -66,12 +67,11 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/dashboard/export-csv', [DashboardController::class, 'exportCsv'])->name('dashboard.export-csv');
 
             // Заявки
-            Route::prefix('leads')->name('leads.')->group(function () {
-                Route::get('/', [LeadController::class, 'index'])->name('index');
-                Route::get('/export-csv', [LeadController::class, 'exportCsv'])->name('export-csv');
-                Route::get('/{id}', [LeadController::class, 'show'])->name('show');
-                Route::post('/{id}/update-status', [LeadController::class, 'updateStatus'])->name('update-status');
-            });
+            Route::get('/leads', [App\Http\Controllers\Crm\LeadController::class, 'index'])->name('leads.index');
+            Route::get('/leads/{id}', [App\Http\Controllers\Crm\LeadController::class, 'show'])->name('leads.show');
+            Route::put('/leads/{id}', [App\Http\Controllers\Crm\LeadController::class, 'update'])->name('leads.update');
+            Route::post('/leads/{id}/update-status', [App\Http\Controllers\Crm\LeadController::class, 'updateStatus'])->name('leads.update-status');
+            Route::post('/leads/{id}/update-relevance', [App\Http\Controllers\Crm\LeadController::class, 'updateRelevance'])->name('leads.update-relevance');
 
             // Настройки компании
             Route::prefix('settings')->name('settings.')->group(function () {
@@ -90,6 +90,15 @@ Route::middleware(['auth'])->group(function () {
                 Route::post('/invitations/create', [SettingsController::class, 'createInvitation'])->name('create-invitation');
                 Route::put('/invitations/{invitation}/deactivate', [SettingsController::class, 'deactivateInvitation'])->name('deactivate-invitation');
             });
+
+            // Аналитика
+            Route::prefix('analytics')->name('analytics.')->group(function () {
+                Route::get('/', [App\Http\Controllers\Crm\AnalyticsController::class, 'index'])->name('index');
+                Route::get('/export-csv', [App\Http\Controllers\Crm\AnalyticsController::class, 'exportCsv'])->name('export-csv');
+            });
+
+            // Теги
+            Route::post('/tags', [TagController::class, 'store'])->name('tags.store');
 
             // Здесь будут другие маршруты CRM (аналитика и т.д.)
         });

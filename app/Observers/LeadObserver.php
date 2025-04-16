@@ -13,7 +13,12 @@ class LeadObserver
     public function created(Lead $lead): void
     {
         // Записываем событие создания заявки
-        $lead->recordEvent('created', null, null, 'Заявка создана');
+        $lead->recordEvent(
+            'created',
+            null,
+            null,
+            'Заявка создана через ' . ($lead->source ? 'источник "' . $lead->source . '"' : 'неизвестный источник')
+        );
 
         // Устанавливаем время изменения статуса
         $lead->status_changed_at = now();
@@ -33,8 +38,13 @@ class LeadObserver
             $oldStatus = $lead->getOriginal('status');
             $newStatus = $lead->status;
 
-            // Записываем событие изменения статуса
-            $lead->recordEvent('status_changed', $oldStatus, $newStatus, "Статус изменен с '$oldStatus' на '$newStatus'");
+            // Записываем событие изменения статуса с локализованными названиями
+            $lead->recordEvent(
+                'status_changed',
+                $oldStatus,
+                $newStatus,
+                "Статус изменен с '" . $lead->getStatusLabel($oldStatus) . "' на '" . $lead->getStatusLabel($newStatus) . "'"
+            );
 
             // Обновляем время изменения статуса
             $lead->status_changed_at = now();
@@ -59,20 +69,28 @@ class LeadObserver
         }
 
         // Отслеживаем изменение других важных полей
-        $trackedFields = ['name', 'email', 'phone', 'message', 'source', 'category', 'relevance_score'];
+        $trackedFields = [
+            'name' => 'Имя',
+            'email' => 'Email',
+            'phone' => 'Телефон',
+            'message' => 'Сообщение',
+            'source' => 'Источник',
+            'category' => 'Категория',
+            'relevance_score' => 'Оценка релевантности'
+        ];
         $shouldUpdateMetrics = false;
 
-        foreach ($trackedFields as $field) {
+        foreach ($trackedFields as $field => $fieldLabel) {
             if ($lead->isDirty($field)) {
                 $oldValue = $lead->getOriginal($field);
                 $newValue = $lead->{$field};
 
-                // Записываем событие изменения поля
+                // Записываем событие изменения поля с локализованным названием
                 $lead->recordEvent(
                     'field_updated',
                     $oldValue,
                     $newValue,
-                    "Поле '$field' изменено"
+                    "Поле '$fieldLabel' изменено"
                 );
 
                 // Если изменилась оценка релевантности или источник, нужно обновить метрики
@@ -94,7 +112,12 @@ class LeadObserver
     public function deleted(Lead $lead): void
     {
         // Записываем событие удаления заявки
-        $lead->recordEvent('deleted', null, null, 'Заявка удалена');
+        $lead->recordEvent(
+            'deleted',
+            null,
+            null,
+            'Заявка удалена из системы'
+        );
 
         // Обновляем метрики после удаления заявки
         $this->updateMetricsForCompany($lead->company_id);
@@ -106,7 +129,12 @@ class LeadObserver
     public function restored(Lead $lead): void
     {
         // Записываем событие восстановления заявки
-        $lead->recordEvent('restored', null, null, 'Заявка восстановлена');
+        $lead->recordEvent(
+            'restored',
+            null,
+            null,
+            'Заявка восстановлена из удаленных'
+        );
 
         // Обновляем метрики после восстановления заявки
         $this->updateMetricsForCompany($lead->company_id);
@@ -149,6 +177,58 @@ class LeadObserver
                 $period['start']->toDateString(),
                 $period['end']->toDateString(),
                 null // без указания источника
+            );
+        }
+    }
+
+    /**
+     * Обрабатывает события изменения тегов заявки.
+     *
+     * @param  \App\Models\Lead  $lead
+     * @param  array  $oldTagIds
+     * @param  array  $newTagIds
+     * @return void
+     */
+    public function updatedTags(Lead $lead, array $oldTagIds, array $newTagIds): void
+    {
+        $oldTags = \App\Models\Tag::whereIn('id', $oldTagIds)->pluck('name')->toArray();
+        $newTags = \App\Models\Tag::whereIn('id', $newTagIds)->pluck('name')->toArray();
+
+        $addedTags = array_values(array_diff($newTagIds, $oldTagIds));
+        $removedTags = array_values(array_diff($oldTagIds, $newTagIds));
+
+        // Если были добавлены новые теги
+        if (!empty($addedTags)) {
+            $addedTagNames = \App\Models\Tag::whereIn('id', $addedTags)->pluck('name')->implode(', ');
+            $lead->recordEvent(
+                'tags_added',
+                null,
+                $addedTagNames,
+                'Добавлены теги: ' . $addedTagNames
+            );
+        }
+
+        // Если были удалены теги
+        if (!empty($removedTags)) {
+            $removedTagNames = \App\Models\Tag::whereIn('id', $removedTags)->pluck('name')->implode(', ');
+            $lead->recordEvent(
+                'tags_removed',
+                $removedTagNames,
+                null,
+                'Удалены теги: ' . $removedTagNames
+            );
+        }
+
+        // Если были и добавлены и удалены теги, записываем общее событие обновления
+        if (!empty($addedTags) && !empty($removedTags)) {
+            $oldTagsStr = empty($oldTags) ? 'нет тегов' : implode(', ', $oldTags);
+            $newTagsStr = empty($newTags) ? 'нет тегов' : implode(', ', $newTags);
+
+            $lead->recordEvent(
+                'tags_updated',
+                $oldTagsStr,
+                $newTagsStr,
+                'Обновлены теги заявки'
             );
         }
     }

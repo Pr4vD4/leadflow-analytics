@@ -47,6 +47,17 @@
                             @endforeach
                         </select>
                     </div>
+
+                    <!-- Теги -->
+                    <div class="w-full sm:w-auto">
+                        <label for="filter[tag]" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Тег</label>
+                        <select id="filter[tag]" name="filter[tag]" class="block w-full rounded-md border-gray-300 dark:border-secondary-700 dark:bg-secondary-900 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm">
+                            <option value="">Все теги</option>
+                            @foreach($tags as $tag)
+                                <option value="{{ $tag->id }}" {{ request('filter.tag') == $tag->id ? 'selected' : '' }}>{{ $tag->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
 
                 <div class="flex items-center justify-between">
@@ -78,6 +89,7 @@
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Контакт</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Сообщение</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Статус</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Теги</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Релевантность</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Дата</th>
                                 <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Действия</th>
@@ -123,6 +135,16 @@
                                                 {{ $lead->status_label }}
                                             </span>
                                         @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        <div class="flex flex-wrap gap-1">
+                                            @foreach($lead->tags as $tag)
+                                                <a href="{{ route('crm.leads.index', ['filter' => ['tag' => $tag->id]]) }}" class="px-2 py-0.5 my-0.5 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-primary-800 transition-colors">
+                                                    <i class="fas fa-tag mr-1 text-xs text-primary-500 dark:text-primary-400"></i>
+                                                    {{ $tag->name }}
+                                                </a>
+                                            @endforeach
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                         @if($lead->relevance_score)

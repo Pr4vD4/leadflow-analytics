@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Crm;
 
 use App\Http\Controllers\Controller;
 use App\Models\Lead;
+use App\Services\AI\LeadRelevanceAnalyzer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Spatie\QueryBuilder\AllowedFilter;
@@ -35,6 +36,16 @@ class LeadController extends Controller
             ->allowedFilters([
                 'status',
                 'source',
+                // Добавляем фильтр по тегам
+                AllowedFilter::callback('tag', function ($query, $value) {
+                    $query->whereHas('tags', function ($query) use ($value) {
+                        if (is_array($value)) {
+                            $query->whereIn('tags.id', $value);
+                        } else {
+                            $query->where('tags.id', $value);
+                        }
+                    });
+                }),
                 AllowedFilter::callback('search', function ($query, $value) {
                     $query->where(function($query) use ($value) {
                         $query->where('name', 'like', "%{$value}%")
@@ -55,7 +66,10 @@ class LeadController extends Controller
             ->filter()
             ->toArray();
 
-        return view('crm.leads.index', compact('leads', 'sources'));
+        // Получаем все теги компании для фильтра
+        $tags = \App\Models\Tag::where('company_id', $companyId)->get();
+
+        return view('crm.leads.index', compact('leads', 'sources', 'tags'));
     }
 
     /**
@@ -68,8 +82,62 @@ class LeadController extends Controller
     {
         $companyId = Auth::user()->company_id;
         $lead = Lead::forCompany($companyId)->findOrFail($id);
+        $availableTags = \App\Models\Tag::where('company_id', $companyId)->get();
 
-        return view('crm.leads.show', compact('lead'));
+        return view('crm.leads.show', compact('lead', 'availableTags'));
+    }
+
+    /**
+     * Обновляет заявку
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function update(Request $request, $id)
+    {
+        $companyId = Auth::user()->company_id;
+        $lead = Lead::forCompany($companyId)->findOrFail($id);
+
+        $request->validate([
+            'name' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:20',
+            'source' => 'required|string|max:255',
+            'message' => 'nullable|string',
+            'category' => 'nullable|string|max:255',
+            'relevance_score' => 'nullable|integer|min:1|max:10',
+            'tags' => 'nullable|array',
+            'tags.*' => 'exists:tags,id'
+        ]);
+
+        // Обновляем данные заявки
+        $lead->name = $request->name;
+        $lead->email = $request->email;
+        $lead->phone = $request->phone;
+        $lead->source = $request->source;
+        $lead->message = $request->message;
+        $lead->category = $request->category;
+        $lead->relevance_score = $request->relevance_score;
+        $lead->save();
+
+        // Получаем текущие ID тегов до синхронизации
+        $oldTagIds = $lead->tags()->pluck('tags.id')->toArray();
+
+        // Синхронизируем теги
+        if ($request->has('tags')) {
+            $lead->tags()->sync($request->tags);
+            $newTagIds = $request->tags;
+        } else {
+            $lead->tags()->detach();
+            $newTagIds = [];
+        }
+
+        // Вызываем метод обсервера для отслеживания изменений тегов
+        app(\App\Observers\LeadObserver::class)->updatedTags($lead, $oldTagIds, $newTagIds);
+
+        return redirect()->route('crm.leads.show', $lead->id)
+            ->with('success', 'Заявка успешно обновлена');
     }
 
     /**
@@ -92,6 +160,28 @@ class LeadController extends Controller
         $lead->save();
 
         return redirect()->back()->with('success', 'Статус заявки успешно обновлен');
+    }
+
+    /**
+     * Обновляет оценку релевантности заявки с помощью ИИ
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function updateRelevance($id)
+    {
+        $companyId = Auth::user()->company_id;
+        $lead = Lead::forCompany($companyId)->findOrFail($id);
+
+        // Используем сервис для анализа релевантности
+        $analyzer = app(LeadRelevanceAnalyzer::class);
+        $success = $analyzer->updateLeadRelevance($lead);
+
+        if ($success) {
+            return redirect()->back()->with('success', 'Оценка релевантности заявки успешно обновлена');
+        } else {
+            return redirect()->back()->with('error', 'Не удалось обновить оценку релевантности заявки');
+        }
     }
 
     /**
