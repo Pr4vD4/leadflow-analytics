@@ -96,7 +96,7 @@
     @include('home.partials.integration')
     @include('home.partials.analytics')
     @include('home.partials.testimonials')
-    @include('home.partials.pricing')
+    {{-- @include('home.partials.pricing') --}}
     @include('home.partials.faq')
     @include('home.partials.contact')
 @endsection

@@ -3,6 +3,7 @@
 namespace App\Services\AI;
 
 use App\Models\Lead;
+use App\Models\LeadAnalytics;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 
@@ -28,9 +29,9 @@ class LeadRelevanceAnalyzer
      *
      * @param Lead $lead Заявка для анализа
      * @param string|null $model Модель AI для анализа (опционально)
-     * @return int|null Оценка релевантности от 1 до 10 или null в случае ошибки
+     * @return array|null Массив с оценкой и объяснением или null в случае ошибки
      */
-    public function analyzeLead(Lead $lead, ?string $model = null): ?int
+    public function analyzeLead(Lead $lead, ?string $model = null): ?array
     {
         // Кэшируем результаты по ID заявки
         $cacheKey = 'lead_relevance_' . $lead->id;
@@ -55,7 +56,7 @@ class LeadRelevanceAnalyzer
 
                 $result = $this->ollamaClient->generateJson($prompt, $model);
 
-                if (!$result || !isset($result['score'])) {
+                if (!$result || !isset($result['score']) || !isset($result['explanation'])) {
                     Log::warning('Не удалось получить оценку релевантности заявки', [
                         'lead_id' => $lead->id,
                         'result' => $result,
@@ -65,6 +66,7 @@ class LeadRelevanceAnalyzer
                 }
 
                 $score = (int)$result['score'];
+                $explanation = $result['explanation'];
 
                 // Проверяем, что оценка находится в диапазоне от 1 до 10
                 if ($score < 1 || $score > 10) {
@@ -79,10 +81,14 @@ class LeadRelevanceAnalyzer
                 Log::info('Успешно получена оценка релевантности заявки', [
                     'lead_id' => $lead->id,
                     'score' => $score,
+                    'explanation' => $explanation,
                     'model' => $model ?? $this->defaultModel
                 ]);
 
-                return $score;
+                return [
+                    'score' => $score,
+                    'explanation' => $explanation
+                ];
             } catch (\Exception $e) {
                 Log::error('Ошибка при анализе релевантности заявки', [
                     'lead_id' => $lead->id,
@@ -104,19 +110,33 @@ class LeadRelevanceAnalyzer
      */
     public function updateLeadRelevance(Lead $lead, ?string $model = null): bool
     {
-        $relevanceScore = $this->analyzeLead($lead, $model);
+        $result = $this->analyzeLead($lead, $model);
 
-        if ($relevanceScore === null) {
+        if ($result === null) {
             return false;
         }
 
         try {
-            $lead->relevance_score = $relevanceScore;
+            // Обновляем оценку релевантности в модели Lead
+            $lead->relevance_score = $result['score'];
             $lead->save();
+
+            // Создаем или обновляем запись в таблице аналитики для сохранения объяснения
+            $leadAnalytics = $lead->analytics ?? new LeadAnalytics(['lead_id' => $lead->id]);
+            $leadAnalytics->relevance_explanation = $result['explanation'];
+
+            // Устанавливаем статус обработки, если запись новая
+            if (!$leadAnalytics->exists) {
+                $leadAnalytics->processing_status = LeadAnalytics::STATUS_COMPLETED;
+                $leadAnalytics->ai_model_used = $model ?? $this->defaultModel;
+            }
+
+            $lead->analytics()->save($leadAnalytics);
 
             Log::info('Обновлена оценка релевантности заявки', [
                 'lead_id' => $lead->id,
-                'score' => $relevanceScore
+                'score' => $result['score'],
+                'explanation' => $result['explanation']
             ]);
 
             return true;
@@ -152,8 +172,9 @@ class LeadRelevanceAnalyzer
         return <<<PROMPT
 Оцени релевантность заявки от клиента по шкале от 1 до 10, где:
 1-3: низкая релевантность (спам, нерелевантные запросы)
-4-6: средняя релевантность (общие вопросы, требующие уточнения)
-7-10: высокая релевантность (конкретные запросы, готовность к сотрудничеству)
+4-7: средняя релевантность (общие вопросы, требующие уточнения)
+8: хорошая релевантность (конкретный запрос с базовыми деталями)
+9-10: высокая релевантность (детализированные запросы с явной готовностью к сотрудничеству)
 
 ДАННЫЕ ЗАЯВКИ:
 Имя клиента: {$name}
@@ -173,9 +194,17 @@ Email: {$email}
 4. Наличие признаков реального интереса (а не спама или холодного обращения)
 5. Потенциал для конверсии в продажу или длительное сотрудничество
 
+ДОПОЛНИТЕЛЬНЫЕ ФАКТОРЫ ДЛЯ ОЦЕНОК 9-10:
+- Явно выраженная готовность к действию или сотрудничеству
+- Указание бюджета, сроков или объемов работ
+- Упоминание конкретных цифр, показателей, количества внедрений
+- Предоставление подробностей о компании или проекте
+- Предложение взаимовыгодного партнерства или долгосрочного сотрудничества
+- Использование профессиональной терминологии и понимание специфики услуг
+
 Верни результат только в формате JSON с полями:
 - score: числовая оценка релевантности от 1 до 10 (целое число)
-- explanation: краткое объяснение оценки (1-2 предложения)
+- explanation: краткое объяснение оценки (1-2 предложения, предпочтительно до 20 слов, максимум 40 слов)
 
 Верни только JSON без дополнительного текста.
 PROMPT;

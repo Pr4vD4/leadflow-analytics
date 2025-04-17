@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Crm;
 
 use App\Http\Controllers\Controller;
 use App\Models\Lead;
+use App\Services\AI\LeadAnalyticsService;
 use App\Services\AI\LeadRelevanceAnalyzer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -292,5 +293,27 @@ class LeadController extends Controller
                 'Content-Disposition' => 'attachment; filename="' . $filename . '"'
             ]
         )->deleteFileAfterSend();
+    }
+
+    /**
+     * Генерирует аналитику заявки с помощью ИИ
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function generateAnalytics($id)
+    {
+        $companyId = Auth::user()->company_id;
+        $lead = Lead::forCompany($companyId)->findOrFail($id);
+
+        // Используем сервис для генерации аналитики
+        $analyzer = app(LeadAnalyticsService::class);
+        $analytics = $analyzer->generateAnalytics($lead);
+
+        if ($analytics && $analytics->processing_status === 'completed') {
+            return redirect()->back()->with('success', 'Аналитика заявки успешно сгенерирована');
+        } else {
+            return redirect()->back()->with('error', 'Не удалось сгенерировать аналитику заявки');
+        }
     }
 }

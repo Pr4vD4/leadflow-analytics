@@ -22,6 +22,7 @@ class LeadAnalytics extends Model
         'sentiment',
         'urgency_score',
         'complexity_score',
+        'relevance_explanation',
         'key_points',
         'ai_model_used',
         'processing_status',

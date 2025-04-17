@@ -177,6 +177,13 @@
                                                     <i class="fas fa-sync-alt"></i> Переоценить
                                                 </button>
                                             </form>
+
+                                            @if($lead->analytics && $lead->analytics->relevance_explanation)
+                                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-2 bg-gray-50 dark:bg-secondary-700 p-2 rounded-md">
+                                                    <span class="font-medium text-gray-700 dark:text-gray-300">Обоснование оценки:</span>
+                                                    {{ $lead->analytics->relevance_explanation }}
+                                                </p>
+                                            @endif
                                         @else
                                             <div class="flex items-center">
                                                 <span class="text-gray-500 dark:text-gray-400">Не оценено</span>
@@ -241,25 +248,135 @@
                             </dl>
 
                             <!-- Сгенерированный ответ -->
-                            @if($lead->generated_response)
+                            @if($lead->analytics && $lead->analytics->processing_status === 'completed' && $lead->analytics->generated_response)
                                 <div class="mt-4">
                                     <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Черновик ответа</h4>
                                     <div class="bg-gray-50 dark:bg-secondary-700 rounded-md p-4">
-                                        <p class="text-sm text-gray-900 dark:text-white">{{ $lead->generated_response }}</p>
+                                        <div class="prose prose-sm max-w-none dark:prose-invert markdown-content">
+                                            {!! Str::of($lead->analytics->generated_response)->markdown() !!}
+                                        </div>
                                     </div>
                                     <div class="mt-2 flex justify-end">
-                                        <button type="button" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-primary-700 dark:text-primary-400 bg-primary-100 dark:bg-primary-900 hover:bg-primary-200 dark:hover:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-secondary-800">
+                                        <button type="button" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-primary-700 dark:text-primary-400 bg-primary-100 dark:bg-primary-900 hover:bg-primary-200 dark:hover:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-secondary-800" onclick="copyToClipboard('{{ addslashes($lead->analytics->generated_response) }}')">
                                             <i class="fas fa-copy mr-1"></i>
                                             Копировать
                                         </button>
                                     </div>
+
+                                    <h4 class="text-sm font-medium text-gray-500 dark:text-gray-400 mt-4 mb-2">Анализ заявки</h4>
+                                    <div class="bg-gray-50 dark:bg-secondary-700 rounded-md p-4">
+                                        <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                            <div>
+                                                <dt class="text-gray-500 dark:text-gray-400">Тональность</dt>
+                                                <dd class="font-medium text-gray-900 dark:text-white">
+                                                    @if($lead->analytics->sentiment === 'positive')
+                                                        <span class="text-green-500"><i class="fas fa-smile mr-1"></i> Позитивная</span>
+                                                    @elseif($lead->analytics->sentiment === 'negative')
+                                                        <span class="text-red-500"><i class="fas fa-frown mr-1"></i> Негативная</span>
+                                                    @else
+                                                        <span class="text-gray-500"><i class="fas fa-meh mr-1"></i> Нейтральная</span>
+                                                    @endif
+                                                </dd>
+                                            </div>
+                                            <div>
+                                                <dt class="text-gray-500 dark:text-gray-400">Срочность</dt>
+                                                <dd class="font-medium text-gray-900 dark:text-white">
+                                                    {{ $lead->analytics->urgency_score ?? 'Не определено' }}/10
+                                                </dd>
+                                            </div>
+                                            <div>
+                                                <dt class="text-gray-500 dark:text-gray-400">Сложность</dt>
+                                                <dd class="font-medium text-gray-900 dark:text-white">
+                                                    {{ $lead->analytics->complexity_score ?? 'Не определено' }}/10
+                                                </dd>
+                                            </div>
+                                        </dl>
+
+                                        <!-- Ключевые моменты в отдельном блоке для лучшего форматирования -->
+                                        <div class="mt-4 border-t border-gray-200 dark:border-secondary-600 pt-3">
+                                            <h5 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Ключевые моменты</h5>
+                                            <div class="prose prose-sm max-w-none dark:prose-invert prose-gray-800 dark:prose-gray-200 markdown-content">
+                                                @php
+                                                    $keyPoints = null;
+                                                    if (isset($lead->analytics->key_points)) {
+                                                        // Если key_points уже массив
+                                                        if (is_array($lead->analytics->key_points)) {
+                                                            $keyPoints = $lead->analytics->key_points;
+                                                        }
+                                                        // Если key_points это строка в формате JSON
+                                                        elseif (is_string($lead->analytics->key_points)) {
+                                                            if (strpos($lead->analytics->key_points, '[') === 0) {
+                                                                // Пробуем раскодировать из JSON
+                                                                try {
+                                                                    $decoded = json_decode($lead->analytics->key_points, true);
+                                                                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                                                                        $keyPoints = $decoded;
+                                                                    } else {
+                                                                        $keyPoints = [$lead->analytics->key_points];
+                                                                    }
+                                                                } catch (\Exception $e) {
+                                                                    $keyPoints = [$lead->analytics->key_points];
+                                                                }
+                                                            } else {
+                                                                $keyPoints = [$lead->analytics->key_points];
+                                                            }
+                                                        }
+                                                    }
+                                                @endphp
+
+                                                @if($keyPoints && count($keyPoints) > 0)
+                                                    <ul class="pl-5 space-y-1 list-disc">
+                                                        @foreach($keyPoints as $point)
+                                                            <li>{!! Str::of($point)->markdown() !!}</li>
+                                                        @endforeach
+                                                    </ul>
+                                                @else
+                                                    <p class="text-gray-500 dark:text-gray-400">Не определено</p>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-2 flex justify-end">
+                                        <form method="POST" action="{{ route('crm.leads.generate-analytics', $lead->id) }}" class="inline-block">
+                                            @csrf
+                                            <button type="submit" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-primary-700 dark:text-primary-400 bg-primary-100 dark:bg-primary-900 hover:bg-primary-200 dark:hover:bg-primary-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-secondary-800">
+                                                <i class="fas fa-sync-alt mr-1"></i>
+                                                Обновить анализ
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            @elseif($lead->analytics && $lead->analytics->processing_status === 'processing')
+                                <div class="mt-4">
+                                    <div class="text-center py-4">
+                                        <i class="fas fa-spinner fa-spin text-primary-600 dark:text-primary-400 text-2xl mb-2"></i>
+                                        <p class="text-gray-600 dark:text-gray-300">Аналитика заявки генерируется...</p>
+                                    </div>
+                                </div>
+                            @elseif($lead->analytics && $lead->analytics->processing_status === 'failed')
+                                <div class="mt-4">
+                                    <div class="text-center py-3 bg-red-50 dark:bg-red-900/20 rounded-md">
+                                        <i class="fas fa-exclamation-triangle text-red-500 dark:text-red-400 text-xl mb-2"></i>
+                                        <p class="text-red-600 dark:text-red-300">Не удалось сгенерировать аналитику</p>
+                                        <form method="POST" action="{{ route('crm.leads.generate-analytics', $lead->id) }}" class="mt-2">
+                                            @csrf
+                                            <button type="submit" class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900 hover:bg-red-200 dark:hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-secondary-800">
+                                                <i class="fas fa-redo mr-1"></i>
+                                                Повторить попытку
+                                            </button>
+                                        </form>
+                                    </div>
                                 </div>
                             @else
                                 <div class="mt-4">
-                                    <button type="button" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-secondary-800">
-                                        <i class="fas fa-robot mr-2"></i>
-                                        Сгенерировать ответ
-                                    </button>
+                                    <form method="POST" action="{{ route('crm.leads.generate-analytics', $lead->id) }}">
+                                        @csrf
+                                        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:focus:ring-offset-secondary-800">
+                                            <i class="fas fa-robot mr-2"></i>
+                                            Сгенерировать ответ
+                                        </button>
+                                    </form>
                                 </div>
                             @endif
                         </div>
@@ -754,6 +871,99 @@
                 document.getElementById('lead-history-content').classList.add('hidden');
             }
         }
+
+        // Функция копирования в буфер обмена
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(function() {
+                alert('Ответ скопирован в буфер обмена');
+            }, function(err) {
+                console.error('Ошибка при копировании текста: ', err);
+            });
+        }
     </script>
+    @endpush
+
+    @push('styles')
+    <style>
+        /* Стили для Markdown-контента */
+        .markdown-content ul {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .markdown-content ol {
+            list-style-type: decimal;
+            padding-left: 1.5rem;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3,
+        .markdown-content h4,
+        .markdown-content h5,
+        .markdown-content h6 {
+            font-weight: 600;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .markdown-content p {
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .markdown-content a {
+            color: #2563eb;
+            text-decoration: underline;
+        }
+
+        .dark .markdown-content a {
+            color: #3b82f6;
+        }
+
+        .markdown-content blockquote {
+            border-left: 4px solid #e5e7eb;
+            padding-left: 1rem;
+            font-style: italic;
+            margin: 0.5rem 0;
+        }
+
+        .dark .markdown-content blockquote {
+            border-left-color: #4b5563;
+        }
+
+        .markdown-content code {
+            font-family: monospace;
+            background-color: #f3f4f6;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-size: 0.875em;
+        }
+
+        .dark .markdown-content code {
+            background-color: #374151;
+        }
+
+        .markdown-content pre {
+            background-color: #f3f4f6;
+            padding: 1rem;
+            border-radius: 0.375rem;
+            overflow-x: auto;
+            margin: 0.75rem 0;
+        }
+
+        .dark .markdown-content pre {
+            background-color: #1f2937;
+        }
+
+        .markdown-content pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+    </style>
     @endpush
 @endsection

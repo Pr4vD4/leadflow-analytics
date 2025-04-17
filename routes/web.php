@@ -72,6 +72,7 @@ Route::middleware(['auth'])->group(function () {
             Route::put('/leads/{id}', [App\Http\Controllers\Crm\LeadController::class, 'update'])->name('leads.update');
             Route::post('/leads/{id}/update-status', [App\Http\Controllers\Crm\LeadController::class, 'updateStatus'])->name('leads.update-status');
             Route::post('/leads/{id}/update-relevance', [App\Http\Controllers\Crm\LeadController::class, 'updateRelevance'])->name('leads.update-relevance');
+            Route::post('/leads/{id}/generate-analytics', [App\Http\Controllers\Crm\LeadController::class, 'generateAnalytics'])->name('leads.generate-analytics');
 
             // Настройки компании
             Route::prefix('settings')->name('settings.')->group(function () {

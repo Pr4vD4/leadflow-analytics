@@ -58,7 +58,7 @@ class CompanyController extends Controller
             $user->company_id = $company->id;
             $user->save();
 
-            return redirect('/dashboard')->with('success', 'Компания успешно создана!');
+            return redirect()->route('crm.dashboard')->with('success', 'Компания успешно создана!');
         } catch (\Exception $e) {
             return back()->withInput()->withErrors([
                 'error' => 'Произошла ошибка при создании компании. Пожалуйста, попробуйте еще раз.'

@@ -46,7 +46,7 @@ class OllamaClient
                     'model' => $modelName,
                     'prompt' => $prompt,
                     'stream' => false,
-                    'options' => $options
+                    'options' => (object) $options
                 ]);
 
             if ($response->failed()) {
@@ -96,7 +96,7 @@ class OllamaClient
                     'prompt' => $prompt,
                     'format' => 'json',
                     'stream' => false,
-                    // 'options' => $options
+                    'options' => (object) $options
                 ]);
 
             $requestTime = microtime(true) - $requestStart;

@@ -6,6 +6,7 @@ use App\Models\Lead;
 use App\Models\LeadComment;
 use App\Observers\LeadObserver;
 use App\Observers\LeadCommentObserver;
+use App\Services\AI\LeadAnalyticsService;
 use App\Services\AI\LeadRelevanceAnalyzer;
 use App\Services\AI\OllamaClient;
 use Illuminate\Support\ServiceProvider;
@@ -29,6 +30,11 @@ class AppServiceProvider extends ServiceProvider
         // Регистрируем LeadRelevanceAnalyzer
         $this->app->singleton(LeadRelevanceAnalyzer::class, function ($app) {
             return new LeadRelevanceAnalyzer($app->make(OllamaClient::class));
+        });
+
+        // Регистрируем LeadAnalyticsService
+        $this->app->singleton(LeadAnalyticsService::class, function ($app) {
+            return new LeadAnalyticsService($app->make(OllamaClient::class));
         });
     }
 
