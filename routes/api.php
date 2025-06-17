@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\LeadController;
+use App\Http\Controllers\Api\BitrixWebhookController;
 use App\Http\Controllers\API\CompanyAnalysisController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -23,6 +24,11 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 // Leads API endpoint with API key authentication
 Route::middleware('api.key')->group(function () {
     Route::post('/leads', [LeadController::class, 'store']);
+});
+
+// Bitrix24 webhook routes (без middleware для внешних запросов)
+Route::prefix('webhooks')->group(function () {
+    Route::post('/bitrix24', [BitrixWebhookController::class, 'handleWebhook']);
 });
 
 // AI Analysis API routes

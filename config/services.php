@@ -31,4 +31,10 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'bitrix24' => [
+        'webhook_url' => env('BITRIX24_WEBHOOK_URL'),
+        'sync_enabled' => env('BITRIX24_SYNC_ENABLED', false),
+        'auto_create_leads' => env('BITRIX24_AUTO_CREATE_LEADS', true),
+    ],
+
 ];

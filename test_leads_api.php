@@ -8,7 +8,7 @@
 
 // Конфигурация
 $baseUrl = 'http://localhost:8000'; // Измените на ваш домен
-$apiKey = 'IZhgu16ALYZAdVAbW4c5dvcbdA00EVpc';
+$apiKey = 'demo_api_key_for_testing_purposes_only';
 
 // Примеры заявок с подробным содержанием
 $testLeads = [

@@ -41,15 +41,15 @@ class LeadController extends Controller
             $company = $request->attributes->get('company');
 
             // Create lead
-            $lead = new Lead();
-            $lead->company_id = $company->id;
-            $lead->source = $request->input('source');
-            $lead->name = $request->input('name');
-            $lead->email = $request->input('email');
-            $lead->phone = $request->input('phone');
-            $lead->message = $request->input('message');
-            $lead->custom_fields = $request->input('custom_fields');
-            $lead->save();
+            $lead = Lead::create([
+                'company_id' => $company->id,
+                'source' => $request->input('source'),
+                'name' => $request->input('name'),
+                'email' => $request->input('email'),
+                'phone' => $request->input('phone'),
+                'message' => $request->input('message'),
+                'custom_fields' => $request->input('custom_fields'),
+            ]);
 
             // TODO: Add to queue for AI processing
 
