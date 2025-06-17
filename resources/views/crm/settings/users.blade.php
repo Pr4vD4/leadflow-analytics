@@ -149,7 +149,7 @@
                 </button>
             </div>
             <div class="px-6 py-4">
-                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                {{-- <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
                     Отправьте приглашение новому сотруднику для работы в LeadFlow Analytics
                 </p>
 
@@ -177,9 +177,9 @@
                             Администраторы имеют полный доступ ко всем настройкам и данным. Менеджеры имеют доступ к управлению пользователями и заявками. Сотрудники могут только создавать и редактировать заявки.
                         </p>
                     </div>
-                </form>
+                </form> --}}
 
-                <div class="border-t border-gray-200 dark:border-secondary-700 pt-4">
+                <div class="pt-4">
                     <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Активные приглашения</h4>
 
                     @if(isset($invitations) && count($invitations) > 0)

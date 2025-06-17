@@ -40,7 +40,7 @@
             @csrf
 
             <!-- Интеграция с Telegram -->
-            <div class="bg-white dark:bg-secondary-800 rounded-lg shadow-sm overflow-hidden mb-6">
+            {{-- <div class="bg-white dark:bg-secondary-800 rounded-lg shadow-sm overflow-hidden mb-6">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-secondary-700 flex items-center justify-between">
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white">Telegram</h3>
                     <div class="flex items-center">
@@ -71,7 +71,7 @@
                         @enderror
                     </div>
                 </div>
-            </div>
+            </div> --}}
 
             <!-- Интеграция с Bitrix24 -->
             <div class="bg-white dark:bg-secondary-800 rounded-lg shadow-sm overflow-hidden mb-6">

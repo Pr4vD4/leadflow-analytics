@@ -2,227 +2,182 @@
 
 namespace App\Services;
 
+use App\Models\Company;
+use App\Models\Lead;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Exception;
 
 class Bitrix24Service
 {
-    private string $webhookUrl;
-    private array $defaultHeaders;
-
-    public function __construct(string $webhookUrl = null)
-    {
-        $this->webhookUrl = $webhookUrl ?: config('services.bitrix24.webhook_url');
-        $this->defaultHeaders = [
-            'Content-Type' => 'application/json',
-            'Accept' => 'application/json',
-        ];
-    }
 
     /**
-     * Create a lead in Bitrix24
+     * Отправляет лид в Битрикс24 через вебхук
      *
-     * @param array $leadData
-     * @return array
-     * @throws Exception
-     */
-    public function createLead(array $leadData): array
-    {
-        try {
-            $response = Http::withHeaders($this->defaultHeaders)
-                ->timeout(30)
-                ->post($this->webhookUrl . 'crm.lead.add.json', [
-                    'fields' => $this->prepareBitrixLeadData($leadData)
-                ]);
-
-            if (!$response->successful()) {
-                throw new Exception('Bitrix24 API error: ' . $response->body());
-            }
-
-            $result = $response->json();
-
-            if (isset($result['error'])) {
-                throw new Exception('Bitrix24 error: ' . $result['error_description']);
-            }
-
-            return $result;
-        } catch (Exception $e) {
-            Log::error('Bitrix24 create lead error: ' . $e->getMessage(), [
-                'lead_data' => $leadData
-            ]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Update a lead in Bitrix24
-     *
-     * @param int $bitrixLeadId
-     * @param array $leadData
-     * @return array
-     * @throws Exception
-     */
-    public function updateLead(int $bitrixLeadId, array $leadData): array
-    {
-        try {
-            $response = Http::withHeaders($this->defaultHeaders)
-                ->timeout(30)
-                ->post($this->webhookUrl . 'crm.lead.update.json', [
-                    'id' => $bitrixLeadId,
-                    'fields' => $this->prepareBitrixLeadData($leadData)
-                ]);
-
-            if (!$response->successful()) {
-                throw new Exception('Bitrix24 API error: ' . $response->body());
-            }
-
-            $result = $response->json();
-
-            if (isset($result['error'])) {
-                throw new Exception('Bitrix24 error: ' . $result['error_description']);
-            }
-
-            return $result;
-        } catch (Exception $e) {
-            Log::error('Bitrix24 update lead error: ' . $e->getMessage(), [
-                'bitrix_lead_id' => $bitrixLeadId,
-                'lead_data' => $leadData
-            ]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Get lead from Bitrix24
-     *
-     * @param int $bitrixLeadId
-     * @return array
-     * @throws Exception
-     */
-    public function getLead(int $bitrixLeadId): array
-    {
-        try {
-            $response = Http::withHeaders($this->defaultHeaders)
-                ->timeout(30)
-                ->post($this->webhookUrl . 'crm.lead.get.json', [
-                    'id' => $bitrixLeadId
-                ]);
-
-            if (!$response->successful()) {
-                throw new Exception('Bitrix24 API error: ' . $response->body());
-            }
-
-            $result = $response->json();
-
-            if (isset($result['error'])) {
-                throw new Exception('Bitrix24 error: ' . $result['error_description']);
-            }
-
-            return $result;
-        } catch (Exception $e) {
-            Log::error('Bitrix24 get lead error: ' . $e->getMessage(), [
-                'bitrix_lead_id' => $bitrixLeadId
-            ]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Prepare lead data for Bitrix24 format
-     *
-     * @param array $leadData
-     * @return array
-     */
-    private function prepareBitrixLeadData(array $leadData): array
-    {
-        $bitrixData = [];
-
-        // Основные поля
-        if (isset($leadData['name'])) {
-            $bitrixData['NAME'] = $leadData['name'];
-        }
-
-        if (isset($leadData['email'])) {
-            $bitrixData['EMAIL'] = [
-                ['VALUE' => $leadData['email'], 'VALUE_TYPE' => 'WORK']
-            ];
-        }
-
-        if (isset($leadData['phone'])) {
-            $bitrixData['PHONE'] = [
-                ['VALUE' => $leadData['phone'], 'VALUE_TYPE' => 'WORK']
-            ];
-        }
-
-        if (isset($leadData['message'])) {
-            $bitrixData['COMMENTS'] = $leadData['message'];
-        }
-
-        if (isset($leadData['source'])) {
-            $bitrixData['SOURCE_DESCRIPTION'] = $leadData['source'];
-        }
-
-        // Пользовательские поля
-        if (isset($leadData['custom_fields']) && is_array($leadData['custom_fields'])) {
-            foreach ($leadData['custom_fields'] as $key => $value) {
-                // Bitrix24 пользовательские поля обычно начинаются с UF_CRM_
-                $bitrixData['UF_CRM_' . strtoupper($key)] = $value;
-            }
-        }
-
-        // Статус по умолчанию
-        $bitrixData['STATUS_ID'] = 'NEW';
-
-        return $bitrixData;
-    }
-
-    /**
-     * Test Bitrix24 connection
-     *
+     * @param Lead $lead
      * @return bool
      */
-    public function testConnection(): bool
+    public function sendLead(Lead $lead): bool
     {
         try {
-            $response = Http::withHeaders($this->defaultHeaders)
-                ->timeout(10)
-                ->post($this->webhookUrl . 'crm.lead.fields.json');
+            $company = $lead->company;
 
-            return $response->successful();
+            // Проверяем, включена ли интеграция с Битрикс24
+            if (!$this->isBitrix24Enabled($company)) {
+                Log::info('Битрикс24 интеграция отключена для компании: ' . $company->id);
+                return false;
+            }
+
+            $webhookUrl = $this->getBitrix24WebhookUrl($company);
+
+            if (!$webhookUrl) {
+                Log::warning('Не найден вебхук URL для Битрикс24 для компании: ' . $company->id);
+                return false;
+            }
+
+            // Формируем данные для отправки в Битрикс24
+            $leadData = $this->prepareLead($lead);
+
+            // Отправляем запрос в Битрикс24
+            $response = Http::timeout(30)->post($webhookUrl . 'crm.lead.add.json', [
+                'fields' => $leadData
+            ]);
+
+            if ($response->successful()) {
+                $responseData = $response->json();
+
+                if (isset($responseData['result'])) {
+                    Log::info('Лид успешно отправлен в Битрикс24', [
+                        'lead_id' => $lead->id,
+                        'bitrix_lead_id' => $responseData['result']
+                    ]);
+
+                    // Сохраняем ID лида в Битрикс24 для дальнейшего использования
+                    $this->saveBitrix24LeadId($lead, $responseData['result']);
+
+                    return true;
+                } else {
+                    Log::error('Ошибка в ответе Битрикс24', [
+                        'lead_id' => $lead->id,
+                        'response' => $responseData
+                    ]);
+                    return false;
+                }
+            } else {
+                Log::error('Ошибка HTTP запроса в Битрикс24', [
+                    'lead_id' => $lead->id,
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
+                return false;
+            }
         } catch (Exception $e) {
-            Log::error('Bitrix24 connection test failed: ' . $e->getMessage());
+            Log::error('Исключение при отправке лида в Битрикс24: ' . $e->getMessage(), [
+                'lead_id' => $lead->id,
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString()
+            ]);
             return false;
         }
     }
 
     /**
-     * Get available lead fields from Bitrix24
+     * Проверяет, включена ли интеграция с Битрикс24 для компании
      *
-     * @return array
-     * @throws Exception
+     * @param Company $company
+     * @return bool
      */
-    public function getLeadFields(): array
+    private function isBitrix24Enabled(Company $company): bool
+    {
+        $settings = $company->settings ?? [];
+        return isset($settings['integrations']['bitrix24']['enabled']) &&
+               $settings['integrations']['bitrix24']['enabled'] === true;
+    }
+
+    /**
+     * Получает URL вебхука Битрикс24 для компании
+     *
+     * @param Company $company
+     * @return string|null
+     */
+    private function getBitrix24WebhookUrl(Company $company): ?string
+    {
+        $settings = $company->settings ?? [];
+        return $settings['integrations']['bitrix24']['webhook_url'] ?? null;
+    }
+
+    /**
+     * Подготавливает данные лида для отправки в Битрикс24
+     *
+     * @param Lead $lead
+     * @return array
+     */
+    private function prepareLead(Lead $lead): array
+    {
+        $leadData = [
+            'TITLE' => $lead->name ?: 'Новый лид',
+            'SOURCE_ID' => 'WEB', // Источник лида
+            'SOURCE_DESCRIPTION' => $lead->source,
+            'STATUS_ID' => 'NEW', // Статус лида
+            'OPENED' => 'Y', // Доступен для всех
+        ];
+
+        // Добавляем контактную информацию
+        if ($lead->name) {
+            $leadData['NAME'] = $lead->name;
+        }
+
+        if ($lead->email) {
+            $leadData['EMAIL'] = [
+                [
+                    'VALUE' => $lead->email,
+                    'VALUE_TYPE' => 'WORK'
+                ]
+            ];
+        }
+
+        if ($lead->phone) {
+            $leadData['PHONE'] = [
+                [
+                    'VALUE' => $lead->phone,
+                    'VALUE_TYPE' => 'WORK'
+                ]
+            ];
+        }
+
+        if ($lead->message) {
+            $leadData['COMMENTS'] = $lead->message;
+        }
+
+        // Добавляем кастомные поля, если есть
+        if ($lead->custom_fields && is_array($lead->custom_fields)) {
+            foreach ($lead->custom_fields as $key => $value) {
+                $leadData['UF_CRM_' . strtoupper($key)] = $value;
+            }
+        }
+
+        return $leadData;
+    }
+
+    /**
+     * Сохраняет ID лида в Битрикс24 в кастомных полях лида
+     *
+     * @param Lead $lead
+     * @param int $bitrixLeadId
+     * @return void
+     */
+    private function saveBitrix24LeadId(Lead $lead, int $bitrixLeadId): void
     {
         try {
-            $response = Http::withHeaders($this->defaultHeaders)
-                ->timeout(30)
-                ->post($this->webhookUrl . 'crm.lead.fields.json');
+            $customFields = $lead->custom_fields ?? [];
+            $customFields['bitrix24_lead_id'] = $bitrixLeadId;
 
-            if (!$response->successful()) {
-                throw new Exception('Bitrix24 API error: ' . $response->body());
-            }
-
-            $result = $response->json();
-
-            if (isset($result['error'])) {
-                throw new Exception('Bitrix24 error: ' . $result['error_description']);
-            }
-
-            return $result['result'] ?? [];
+            $lead->update(['custom_fields' => $customFields]);
         } catch (Exception $e) {
-            Log::error('Bitrix24 get lead fields error: ' . $e->getMessage());
-            throw $e;
+            Log::error('Ошибка при сохранении ID лида Битрикс24: ' . $e->getMessage(), [
+                'lead_id' => $lead->id,
+                'bitrix_lead_id' => $bitrixLeadId
+            ]);
         }
     }
 }

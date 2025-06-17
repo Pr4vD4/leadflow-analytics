@@ -4,6 +4,8 @@ namespace App\Observers;
 
 use App\Models\Lead;
 use App\Models\LeadMetric;
+use App\Services\Bitrix24Service;
+use Illuminate\Support\Facades\Log;
 
 class LeadObserver
 {
@@ -23,6 +25,9 @@ class LeadObserver
         // Устанавливаем время изменения статуса
         $lead->status_changed_at = now();
         $lead->saveQuietly(); // Сохраняем без повторного вызова обсервера
+
+        // Отправляем лид в Битрикс24 если интеграция включена
+        $this->sendToBitrix24($lead);
 
         // Обновляем метрики для компании после создания заявки
         $this->updateMetricsForCompany($lead->company_id);
@@ -229,6 +234,46 @@ class LeadObserver
                 $oldTagsStr,
                 $newTagsStr,
                 'Обновлены теги заявки'
+            );
+        }
+    }
+
+    /**
+     * Отправляет лид в Битрикс24 через интеграцию
+     *
+     * @param Lead $lead
+     * @return void
+     */
+    private function sendToBitrix24(Lead $lead): void
+    {
+        try {
+            $bitrix24Service = app(Bitrix24Service::class);
+            $result = $bitrix24Service->sendLead($lead);
+
+            if ($result) {
+                // Записываем событие успешной отправки в Битрикс24
+                $lead->recordEvent(
+                    'bitrix24_sent',
+                    null,
+                    null,
+                    'Лид успешно отправлен в Битрикс24'
+                );
+            }
+        } catch (\Exception $e) {
+            // Логируем ошибку, но не прерываем выполнение
+            Log::error('Ошибка при отправке лида в Битрикс24: ' . $e->getMessage(), [
+                'lead_id' => $lead->id,
+                'company_id' => $lead->company_id,
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            // Записываем событие ошибки отправки в Битрикс24
+            $lead->recordEvent(
+                'bitrix24_error',
+                null,
+                null,
+                'Ошибка при отправке лида в Битрикс24: ' . $e->getMessage()
             );
         }
     }

@@ -25,6 +25,7 @@ class Company extends Model
         'ai_analysis',
         'telegram_chat_id',
         'is_active',
+        'settings',
     ];
 
     /**
@@ -36,6 +37,7 @@ class Company extends Model
         'is_active' => 'boolean',
         'description_quality_score' => 'integer',
         'ai_analysis' => 'json',
+        'settings' => 'json',
     ];
 
     /**
