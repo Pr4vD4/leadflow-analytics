@@ -14,7 +14,10 @@
             <div class="bg-secondary-50 dark:bg-secondary-900 rounded-xl shadow-md p-8 border border-secondary-100 dark:border-secondary-700" data-aos="fade-up" data-aos-delay="100">
                 <div class="flex items-center mb-6">
                     <div class="flex-shrink-0 mr-4">
-                        <img class="h-12 w-12 rounded-full" src="https://via.placeholder.com/150" alt="Фото клиента">
+                        <img class="h-12 w-12 rounded-full object-cover"
+                             src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=150&q=80"
+                             onerror="this.src='https://ui-avatars.com/api/?name=Anna+Sergeeva&color=7F9CF5&background=EBF4FF&size=150'"
+                             alt="Анна Сергеева">
                     </div>
                     <div>
                         <h3 class="text-lg font-medium text-secondary-900 dark:text-white">Анна Сергеева</h3>
@@ -39,7 +42,10 @@
             <div class="bg-secondary-50 dark:bg-secondary-900 rounded-xl shadow-md p-8 border border-secondary-100 dark:border-secondary-700" data-aos="fade-up" data-aos-delay="200">
                 <div class="flex items-center mb-6">
                     <div class="flex-shrink-0 mr-4">
-                        <img class="h-12 w-12 rounded-full" src="https://via.placeholder.com/150" alt="Фото клиента">
+                        <img class="h-12 w-12 rounded-full object-cover"
+                             src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=150&q=80"
+                             onerror="this.src='https://ui-avatars.com/api/?name=Dmitry+Kovalev&color=10B981&background=D1FAE5&size=150'"
+                             alt="Дмитрий Ковалев">
                     </div>
                     <div>
                         <h3 class="text-lg font-medium text-secondary-900 dark:text-white">Дмитрий Ковалев</h3>
@@ -64,7 +70,10 @@
             <div class="bg-secondary-50 dark:bg-secondary-900 rounded-xl shadow-md p-8 border border-secondary-100 dark:border-secondary-700" data-aos="fade-up" data-aos-delay="300">
                 <div class="flex items-center mb-6">
                     <div class="flex-shrink-0 mr-4">
-                        <img class="h-12 w-12 rounded-full" src="https://via.placeholder.com/150" alt="Фото клиента">
+                        <img class="h-12 w-12 rounded-full object-cover"
+                             src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=150&q=80"
+                             onerror="this.src='https://ui-avatars.com/api/?name=Elena+Novikova&color=F59E0B&background=FEF3C7&size=150'"
+                             alt="Елена Новикова">
                     </div>
                     <div>
                         <h3 class="text-lg font-medium text-secondary-900 dark:text-white">Елена Новикова</h3>
