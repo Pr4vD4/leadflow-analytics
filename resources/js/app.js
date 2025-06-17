@@ -111,7 +111,7 @@ window.initParticles = async function(containerId) {
                 },
                 options: {
                     background: {
-                        color: "#f9fafb"
+                        color: "transparent"
                     },
                     particles: {
                         color: {
@@ -131,7 +131,7 @@ window.initParticles = async function(containerId) {
                 },
                 options: {
                     background: {
-                        color: "#0f172a"
+                        color: "transparent"
                     },
                     particles: {
                         color: {

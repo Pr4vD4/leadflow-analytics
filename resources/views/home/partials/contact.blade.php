@@ -19,7 +19,7 @@
                 </div>
             </div>
             <div class="mt-12 lg:mt-0" data-aos="fade-left" data-aos-delay="200">
-                <form class="bg-white dark:bg-secondary-900 rounded-xl p-8 shadow-lg">
+                <form class="bg-secondary-50 dark:bg-secondary-900 rounded-xl p-8 shadow-lg">
                     <div class="space-y-6">
                         <div>
                             <label for="name" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300">Имя</label>

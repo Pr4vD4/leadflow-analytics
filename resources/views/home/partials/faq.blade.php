@@ -1,4 +1,4 @@
-<section id="faq" class="py-24 bg-secondary-50 dark:bg-secondary-800">
+<section id="faq" class="py-24 bg-secondary-50 dark:bg-secondary-900">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-16" data-aos="fade-up">
             <h2 class="text-3xl font-bold font-heading text-secondary-900 dark:text-white">

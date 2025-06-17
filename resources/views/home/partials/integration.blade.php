@@ -40,7 +40,7 @@
                 </ul>
             </div>
             <div class="mt-12 lg:mt-0" data-aos="fade-left" data-aos-delay="200">
-                <div class="bg-white dark:bg-secondary-900 rounded-xl shadow-lg overflow-hidden">
+                <div class="bg-secondary-50 dark:bg-secondary-900 rounded-xl shadow-lg overflow-hidden">
                     <img class="w-full" src="https://via.placeholder.com/600x400?text=Integration+Platform" alt="Интеграционная платформа">
                 </div>
             </div>

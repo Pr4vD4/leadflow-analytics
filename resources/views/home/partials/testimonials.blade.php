@@ -11,7 +11,7 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <!-- Отзыв 1 -->
-            <div class="bg-white dark:bg-secondary-900 rounded-xl shadow-md p-8 border border-secondary-100 dark:border-secondary-700" data-aos="fade-up" data-aos-delay="100">
+            <div class="bg-secondary-50 dark:bg-secondary-900 rounded-xl shadow-md p-8 border border-secondary-100 dark:border-secondary-700" data-aos="fade-up" data-aos-delay="100">
                 <div class="flex items-center mb-6">
                     <div class="flex-shrink-0 mr-4">
                         <img class="h-12 w-12 rounded-full" src="https://via.placeholder.com/150" alt="Фото клиента">
@@ -36,7 +36,7 @@
             </div>
 
             <!-- Отзыв 2 -->
-            <div class="bg-white dark:bg-secondary-900 rounded-xl shadow-md p-8 border border-secondary-100 dark:border-secondary-700" data-aos="fade-up" data-aos-delay="200">
+            <div class="bg-secondary-50 dark:bg-secondary-900 rounded-xl shadow-md p-8 border border-secondary-100 dark:border-secondary-700" data-aos="fade-up" data-aos-delay="200">
                 <div class="flex items-center mb-6">
                     <div class="flex-shrink-0 mr-4">
                         <img class="h-12 w-12 rounded-full" src="https://via.placeholder.com/150" alt="Фото клиента">
@@ -61,7 +61,7 @@
             </div>
 
             <!-- Отзыв 3 -->
-            <div class="bg-white dark:bg-secondary-900 rounded-xl shadow-md p-8 border border-secondary-100 dark:border-secondary-700" data-aos="fade-up" data-aos-delay="300">
+            <div class="bg-secondary-50 dark:bg-secondary-900 rounded-xl shadow-md p-8 border border-secondary-100 dark:border-secondary-700" data-aos="fade-up" data-aos-delay="300">
                 <div class="flex items-center mb-6">
                     <div class="flex-shrink-0 mr-4">
                         <img class="h-12 w-12 rounded-full" src="https://via.placeholder.com/150" alt="Фото клиента">

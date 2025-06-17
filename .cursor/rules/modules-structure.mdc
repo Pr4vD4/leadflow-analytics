@@ -1,0 +1,45 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Модульная структура проекта
+
+## Интеграционный модуль
+- Цель: Обеспечить сбор заявок с сайтов клиентов через REST API
+- Основные файлы:
+  - Контроллер: [app/Http/Controllers/API/LeadController.php](mdc:app/Http/Controllers/API/LeadController.php)
+  - Модель: [app/Models/Lead.php](mdc:app/Models/Lead.php)
+  - Middleware для API-ключа: [app/Http/Middleware/VerifyApiKey.php](mdc:app/Http/Middleware/VerifyApiKey.php)
+  - Валидатор: [app/Http/Requests/LeadRequest.php](mdc:app/Http/Requests/LeadRequest.php)
+
+## Мини-CRM
+- Цель: Базовое управление заявками с возможностью редактирования, фильтрации и загрузки файлов
+- Основные файлы:
+  - Контроллер: [app/Http/Controllers/LeadManagementController.php](mdc:app/Http/Controllers/LeadManagementController.php)
+  - Livewire-компоненты: [app/Http/Livewire/LeadsTable.php](mdc:app/Http/Livewire/LeadsTable.php)
+  - Модели:
+    - [app/Models/LeadStatus.php](mdc:app/Models/LeadStatus.php)
+    - [app/Models/LeadTag.php](mdc:app/Models/LeadTag.php)
+    - [app/Models/File.php](mdc:app/Models/File.php)
+
+## ИИ-аналитика
+- Цель: Автоматизация обработки заявок с использованием NLP
+- Основные файлы:
+  - Сервис: [app/Services/AiAnalyticsService.php](mdc:app/Services/AiAnalyticsService.php)
+  - Jobs: [app/Jobs/AnalyzeLeadJob.php](mdc:app/Jobs/AnalyzeLeadJob.php)
+  - Контроллер: [app/Http/Controllers/AiController.php](mdc:app/Http/Controllers/AiController.php)
+
+## Дашборд аналитики
+- Цель: Визуализация метрик по заявкам
+- Основные файлы:
+  - Контроллер: [app/Http/Controllers/DashboardController.php](mdc:app/Http/Controllers/DashboardController.php)
+  - Сервис: [app/Services/AnalyticsService.php](mdc:app/Services/AnalyticsService.php)
+  - Livewire-компоненты: [app/Http/Livewire/Dashboard](mdc:app/Http/Livewire/Dashboard)
+
+## Интеграция с Bitrix24
+- Цель: Передача заявок во внешнюю CRM
+- Основные файлы:
+  - Сервис: [app/Services/Bitrix24Service.php](mdc:app/Services/Bitrix24Service.php)
+  - Jobs: [app/Jobs/SyncLeadToBitrix24Job.php](mdc:app/Jobs/SyncLeadToBitrix24Job.php)
+

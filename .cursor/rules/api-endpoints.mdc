@@ -1,0 +1,42 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# API эндпоинты
+
+## Публичные эндпоинты
+- `POST /api/leads` - Создание новой заявки
+  - Обязательные поля: source, (phone или email)
+  - Дополнительные поля: name, message, custom_fields
+  - Аутентификация: API-ключ в заголовке X-API-Key
+  - Пример запроса:
+  ```json
+  {
+    "source": "website",
+    "phone": "+7999XXXXXXX",
+    "email": "example@email.com",
+    "name": "Иван Петров",
+    "message": "Интересует консультация по продукту"
+  }
+  ```
+
+## Внутренние эндпоинты для работы системы
+- `GET /api/dashboard/stats` - Статистика для дашборда
+  - Параметры: date_from, date_to, company_id
+
+- `POST /leads/{lead}/upload-file` - Загрузка файлов к заявке
+  - Параметры: file (multipart/form-data)
+  - Максимальный размер: 10MB
+
+- `GET /leads/export` - Экспорт заявок в CSV
+  - Параметры: date_from, date_to, status, tags
+
+## API для интеграции с Bitrix24
+- `POST /api/bitrix24/sync/{lead}` - Ручная синхронизация заявки
+- `POST /api/bitrix24/webhook` - Вебхук для получения обновлений из Bitrix24
+
+## API для работы с ИИ
+- `POST /api/ai/analyze/{lead}` - Запуск анализа заявки
+- `POST /api/ai/generate-response/{lead}` - Генерация ответа на заявку
+

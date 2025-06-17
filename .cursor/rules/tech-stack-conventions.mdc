@@ -1,0 +1,49 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Технический стек и соглашения
+
+## Технологический стек
+- **Backend**: PHP 8+, Laravel 10
+- **База данных**: MySQL/PostgreSQL
+- **Frontend**:
+  - Laravel Blade
+  - Livewire
+  - Chart.js/ApexCharts для визуализации
+- **Авторизация**: Laravel Breeze/Fortify
+- **Очереди**: Laravel Queues с Redis
+- **Интеграция с ИИ**: OpenAI API (модель gpt-3.5-turbo)
+
+## Соглашения по коду
+
+### Именование
+- **Контроллеры**: PascalCase, суффикс Controller (например, LeadController)
+- **Модели**: PascalCase, единственное число (например, Lead)
+- **Таблицы БД**: snake_case, множественное число (например, leads)
+- **Миграции**: snake_case с префиксом даты (например, 2023_05_01_create_leads_table)
+- **Методы**: camelCase (например, createLead)
+- **Переменные**: camelCase (например, $leadData)
+
+### Структура проекта
+- **Модели**: `app/Models/`
+- **Контроллеры**: `app/Http/Controllers/`
+- **Миддлвары**: `app/Http/Middleware/`
+- **Сервисы**: `app/Services/`
+- **Задания**: `app/Jobs/`
+- **Шаблоны**: `resources/views/`
+- **Миграции**: `database/migrations/`
+- **Тесты**: `tests/`
+
+### Мультитенантность
+- Используется подход через фильтрацию по company_id
+- Все запросы к БД должны учитывать company_id текущего пользователя
+- Хранение файлов в изолированных директориях: `storage/app/companies/{company_id}/`
+
+### API
+- Использование типизированных запросов (FormRequest) для валидации входящих данных
+- Структурированные JSON-ответы с использованием ресурсов (Resources)
+- Аутентификация через API-ключ в заголовке X-API-Key
+- Документирование через Swagger/OpenAPI
+

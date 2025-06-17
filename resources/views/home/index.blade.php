@@ -5,7 +5,7 @@
 @section('content')
     <!-- Главный экран -->
     <header
-        class="relative flex min-h-screen items-center overflow-hidden bg-gradient-to-br from-white to-primary-50 pt-16 dark:from-secondary-900 dark:to-secondary-800">
+        class="relative flex min-h-screen items-center overflow-hidden bg-secondary-50 dark:bg-secondary-900 pt-16">
         <!-- Фоновые частицы для главного экрана -->
         <x-particles id="header-particles" />
 
